@@ -3,11 +3,12 @@ This folder contains:
 mac80211_hwsim/ -> Modified mac80211_hwsim module to support userspace frame tx.
 rawsocket/ 	-> Raw socket based ping-pong application to test stability and loss probability behaviour. 
 wmediumd/ 	-> User space application to apply loss probability per link.
-
+wconfig/	-> Java based tool to create advanced config files for wmediumd.
 Dependencies:
 
 [rawsocket] -> libpthread 
 [wmediumd]  -> libnl 2.0, libconfig
+[wconfig] -> Java JRE 6.0
 
 ***Compilation of applications***
 
@@ -37,10 +38,10 @@ The user application is responsible for handling the frames sent from the kernel
 
 It will create a new FILE with the a sample configuration schema.
 
-- To launch the application in simulation mode:
+- To launch the application in simulation mode (superuser is required):
 
  $ cd wmediumd
- $ ./wmediumd -c [FILE]
+ $ sudo ./wmediumd -c [FILE]
 
 Once launch it will show all the probability matrix and the transmission counters.
 
@@ -70,6 +71,15 @@ This a very simple Raw socket ping-pong application, developed to test the stabi
 
  $ cd rawsocket
  $ sudo ./client [listening interface] [destination interface] [msec between frames]
+
+[wconfig]
+
+This is an extra tool based on JUNG framework to support the generation of advanced topologies for wireless medium daemon.
+
+To launch the application:
+
+ $ cd wconfig
+ $ java - jar wconfig.jar 
 
 Enjoy!
 
