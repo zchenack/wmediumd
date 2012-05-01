@@ -170,12 +170,12 @@ int send_frame_msg_apply_prob_and_rate(struct mac_address *src,
 	double random_double = generate_random_double();
 
 	if (random_double < prob_per_link) {
-		printf("dropped\n");
+		//printf("dropped\n");
 		dropped++;
 		return 0;
 	} else {
 
-		printf("sent\n");
+		//printf("sent\n");
 		/*received signal level*/
 		int signal = get_signal_by_rate(rate_idx);
 
@@ -325,7 +325,7 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 			unsigned long cookie = nla_get_u64(attrs[HWSIM_ATTR_COOKIE]);
 			received++;
 
-			printf("frame [%d] length:%d\n",received,data_len);
+			//printf("frame [%d] length:%d\n",received,data_len);
 			send_frames_to_radios_with_retries(src, data,
 					data_len, flags, tx_rates, cookie);
 			//printf("\rreceived: %d tried: %d sent: %d acked: %d",
@@ -489,7 +489,7 @@ int main(int argc, char* argv[]) {
 	while(running) {
 		nl_recvmsgs_default(sock);
 	}
-	
+
 	/*Free all memory*/
 	free(sock);
 	free(msg);

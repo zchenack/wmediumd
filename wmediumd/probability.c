@@ -149,7 +149,7 @@ double find_prob_by_addrs_and_rate (double *aMatrix, struct mac_address *src,
 	int x = find_pos_by_mac_address(src);
 	int y = find_pos_by_mac_address(dst);
 
-	printf("[%d][%d] rate:%d ploss=%f ",x,y,rate_idx,MATRIX_PROB(aMatrix,array_size,x,y,rate_idx));
+	//printf("[%d][%d] rate:%d ploss=%f ",x,y,rate_idx,MATRIX_PROB(aMatrix,array_size,x,y,rate_idx));
 
 	if (x == -1 || y ==-1)
 		return -1;
