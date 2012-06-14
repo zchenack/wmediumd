@@ -179,7 +179,7 @@ int load_config(const char *file)
 	config_t cfg, *cf;
 	const config_setting_t *ids, *prob_list, *mat_array, *jammer_s;
 	int count_ids, rates_prob, i, j;
-	int count_value, rates_value;
+	long int count_value, rates_value;
 
 	/*initialize the config file*/
 	cf = &cfg;
