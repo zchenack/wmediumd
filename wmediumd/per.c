@@ -34,20 +34,21 @@ struct rate rateset[] = {
 
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof(a[0]))
 
-double factorial(int n)
+double n_choose_k(double n, double k)
 {
-    double f = 1;
-    for (; n > 0; n--)
-        f *= n;
-    return f;
-}
+    int i;
+    double c = 1;
 
-double nchoosek(double n, double k)
-{
-    if (n < k)
+    if (n < k || !k)
         return 0;
 
-    return factorial(n)/(factorial(k) * factorial(n-k));
+    if (k > n - k)
+        k = n - k;
+
+    for (i=1; i <= k; i++)
+        c *= (n - (k - i)) / i;
+
+    return c;
 }
 
 double dot(double *v1, double *v2, int len)
@@ -119,12 +120,12 @@ double per(double ber, enum fec_rate rate, int frame_len)
 
         if (d & 1) {
             for (k = (d+1)/2; k <= d; k++)
-                sum_prob += nchoosek(d, k) * pow(rho, k) * pow(1 - rho, d-k);
+                sum_prob += n_choose_k(d, k) * pow(rho, k) * pow(1 - rho, d-k);
         } else {
             for (k = d/2+1; k <= d; k++)
-                sum_prob += nchoosek(d, k) * pow(rho, k) * pow(1 - rho, d-k);
+                sum_prob += n_choose_k(d, k) * pow(rho, k) * pow(1 - rho, d-k);
 
-            sum_prob += .5 * nchoosek(d, d/2) * pow(rho, d/2) *
+            sum_prob += .5 * n_choose_k(d, d/2) * pow(rho, d/2) *
                 pow(1-rho, d/2);
         }
         p_d[i] = sum_prob;
