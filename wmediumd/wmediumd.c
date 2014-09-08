@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <getopt.h>
 #include <signal.h>
+#include <event.h>
 
 #include "wmediumd.h"
 #include "probability.h"
@@ -35,7 +36,6 @@
 #include "ieee80211.h"
 #include "config.h"
 
-struct nl_sock *sock;
 struct nl_msg *msg;
 struct nl_cb *cb;
 struct nl_cache *cache;
@@ -66,7 +66,8 @@ double generate_random_double()
  *	Send a tx_info frame to the kernel space.
  */
 
-int send_tx_info_frame_nl(struct mac_address *src,
+int send_tx_info_frame_nl(struct nl_sock *sock,
+			  struct mac_address *src,
 			  unsigned int flags, int signal,
 			  struct hwsim_tx_rate *tx_attempts,
 			  unsigned long cookie)
@@ -109,7 +110,8 @@ out:
  * 	Send a cloned frame to the kernel space.
  */
 
-int send_cloned_frame_msg(struct mac_address *dst,
+int send_cloned_frame_msg(struct nl_sock *sock,
+			  struct mac_address *dst,
 			  char *data, int data_len, int rate_idx, int signal)
 {
 
@@ -159,14 +161,14 @@ int get_signal_by_rate(int rate_idx)
  * 	Send a frame applying the loss probability of the link
  */
 
-int send_frame_msg_apply_prob_and_rate(struct mac_address *src,
+int send_frame_msg_apply_prob_and_rate(struct nl_sock *sock,
+				       struct mac_address *src,
 				       struct mac_address *dst,
 				       char *data, int data_len, int rate_idx)
 {
-
 	/* At higher rates higher loss probability*/
-	double prob_per_link = find_prob_by_addrs_and_rate(prob_matrix,
-							   src,dst, rate_idx);
+	double snr = 25;
+	double prob_per_link = get_error_prob(snr, rate_idx, data_len);
 	double random_double = generate_random_double();
 
 	if (random_double < prob_per_link) {
@@ -179,7 +181,7 @@ int send_frame_msg_apply_prob_and_rate(struct mac_address *src,
 		/*received signal level*/
 		int signal = get_signal_by_rate(rate_idx);
 
-		send_cloned_frame_msg(dst,data,data_len,rate_idx,signal);
+		send_cloned_frame_msg(sock, dst,data,data_len,rate_idx,signal);
 		sent++;
 		return 1;
 	}
@@ -219,7 +221,8 @@ int jam_mac(struct jammer_cfg *jcfg, struct mac_address *src)
  * 	Iterate all the radios and send a copy of the frame to each interface.
  */
 
-void send_frames_to_radios_with_retries(struct mac_address *src, char*data,
+void send_frames_to_radios_with_retries(struct nl_sock *sock,
+					struct mac_address *src, char*data,
 					int data_len, unsigned int flags,
 					struct hwsim_tx_rate *tx_rates,
 					unsigned long cookie)
@@ -266,7 +269,7 @@ void send_frames_to_radios_with_retries(struct mac_address *src, char*data,
 				 * the frame is destined to this radio tx_ok
 				*/
 				if(send_frame_msg_apply_prob_and_rate(
-					src, dst, data, data_len,
+					sock, src, dst, data, data_len,
 					tx_attempts[round].idx) &&
 					memcmp(dst, hdr->addr1,
 					sizeof(struct mac_address))==0) {
@@ -287,9 +290,9 @@ void send_frames_to_radios_with_retries(struct mac_address *src, char*data,
 		int signal = get_signal_by_rate(tx_attempts[round-1].idx);
 		/* Let's flag this frame as ACK'ed */
 		flags |= HWSIM_TX_STAT_ACK;
-		send_tx_info_frame_nl(src, flags, signal, tx_attempts, cookie);
+		send_tx_info_frame_nl(sock, src, flags, signal, tx_attempts, cookie);
 	} else {
-		send_tx_info_frame_nl(src, flags, 0, tx_attempts, cookie);
+		send_tx_info_frame_nl(sock, src, flags, 0, tx_attempts, cookie);
 	}
 }
 
@@ -299,7 +302,7 @@ void send_frames_to_radios_with_retries(struct mac_address *src, char*data,
 
 static int process_messages_cb(struct nl_msg *msg, void *arg)
 {
-
+	struct nl_sock *sock = arg;
 	struct nlattr *attrs[HWSIM_ATTR_MAX+1];
 	/* netlink header */
 	struct nlmsghdr *nlh = nlmsg_hdr(msg);
@@ -326,7 +329,7 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 			received++;
 
 			//printf("frame [%d] length:%d\n",received,data_len);
-			send_frames_to_radios_with_retries(src, data,
+			send_frames_to_radios_with_retries(sock, src, data,
 					data_len, flags, tx_rates, cookie);
 			//printf("\rreceived: %d tried: %d sent: %d acked: %d",
 			//		received, dropped+sent, sent, acked);
@@ -339,9 +342,8 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
  * 	Send a register message to kernel
  */
 
-int send_register_msg()
+int send_register_msg(struct nl_sock *sock)
 {
-
 	msg = nlmsg_alloc();
 	if (!msg) {
 		printf("Error allocating new message MSG!\n");
@@ -354,7 +356,6 @@ int send_register_msg()
 	nlmsg_free(msg);
 
 	return 0;
-
 }
 
 /*
@@ -364,14 +365,17 @@ void kill_handler() {
 	running = 0;
 }
 
-
+static void sock_event_cb(int fd, short what, void *data)
+{
+	nl_recvmsgs_default((struct nl_sock *) data);
+}
 
 /*
- * 	Init netlink
+ *	Init netlink
  */
-
-void init_netlink()
+struct nl_sock *init_netlink()
 {
+	struct nl_sock *sock;
 
 	cb = nl_cb_alloc(NL_CB_CUSTOM);
 	if (!cb) {
@@ -395,8 +399,8 @@ void init_netlink()
 		exit(EXIT_FAILURE);
 	}
 
-	nl_cb_set(cb, NL_CB_MSG_IN, NL_CB_CUSTOM, process_messages_cb, NULL);
-
+	nl_cb_set(cb, NL_CB_MSG_IN, NL_CB_CUSTOM, process_messages_cb, sock);
+	return sock;
 }
 
 /*
@@ -418,9 +422,12 @@ void print_help(int exval)
 }
 
 
-int main(int argc, char* argv[]) {
-
+int main(int argc, char* argv[])
+{
 	int opt, ifaces;
+	int fd;
+	struct nl_sock *sock;
+	struct event ev_cmd;
 
 	/* Set stdout buffering to line mode */
 	setvbuf (stdout, NULL, _IOLBF, BUFSIZ);
@@ -478,17 +485,21 @@ int main(int argc, char* argv[]) {
 	running = 1;
 	signal(SIGUSR1, kill_handler);
 
-	/*init netlink*/
-	init_netlink();
+	/* init libevent */
+	event_init();
 
-	/*Send a register msg to the kernel*/
-	if (send_register_msg()==0)
+	/* init netlink */
+	sock = init_netlink();
+	event_set(&ev_cmd, nl_socket_get_fd(sock), EV_READ | EV_PERSIST,
+		  sock_event_cb, sock);
+	event_add(&ev_cmd, NULL);
+
+	/* Send a register msg to the kernel */
+	if (send_register_msg(sock)==0)
 		printf("REGISTER SENT!\n");
 
-	/*We wait for incoming msg*/
-	while(running) {
-		nl_recvmsgs_default(sock);
-	}
+	/* enter libevent main loop */
+	event_dispatch();
 
 	/*Free all memory*/
 	free(sock);

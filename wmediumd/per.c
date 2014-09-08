@@ -3,7 +3,6 @@
  * packet length.
  */
 #include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 /* Code rates for convolutional codes */
@@ -138,31 +137,22 @@ double per(double ber, enum fec_rate rate, int frame_len)
     return 1.0 - pow(1-prob_uncorrected, 8 * frame_len);
 }
 
-int main(int argc, char *argv[])
+double get_error_prob(double snr, unsigned int rate_idx, int frame_len)
 {
-    int rate, i;
-    int pktlen = 1500;
-    int steps = 20;
+    int m;
+    enum fec_rate fec;
+    double ber;
 
-    printf("#rate\tsnr\tlen\tber\tper\tgoodput\n");
-    for (rate=0; rate < ARRAY_SIZE(rateset); rate++)
-    {
-        for (i=0; i < 30 * steps; i++)
-        {
-            double ber;
-            double snr = i/(double) steps;
-            int m = rateset[rate].mqam;
-            enum fec_rate fec = rateset[rate].fec;
-            if (m == 2)
-                ber = bpsk_ber(snr);
-            else
-                ber = mqam_ber(m, snr);
+    if (rate_idx >= ARRAY_SIZE(rateset))
+        return 1.0;
 
-            double per_val = per(ber, fec, pktlen);
-            printf("%d\t%g\t%d\t%g\t%g\t%g\n",
-                rateset[rate].mbps, snr, pktlen,
-                ber, per_val, (1.0-per_val) * rateset[rate].mbps);
-        }
-        printf("\n\n");
-    }
+    m = rateset[rate_idx].mqam;
+    fec = rateset[rate_idx].fec;
+
+    if (m == 2)
+        ber = bpsk_ber(snr);
+    else
+        ber = mqam_ber(m, snr);
+
+    return per(ber, fec, frame_len);
 }

@@ -1,4 +1,4 @@
-VERSION_STR="\"0.1\""
+VERSION_STR="\"0.2\""
 
 # Look for libnl libraries
 PKG_CONFIG ?= pkg-config
@@ -6,6 +6,9 @@ NL2FOUND := $(shell $(PKG_CONFIG) --atleast-version=2 libnl-2.0 && echo Y)
 NL3FOUND := $(shell $(PKG_CONFIG) --atleast-version=3 libnl-3.0 && echo Y)
 NL31FOUND := $(shell $(PKG_CONFIG) --exact-version=3.1 libnl-3.1 && echo Y)
 NL3xFOUND := $(shell $(PKG_CONFIG) --atleast-version=3.2 libnl-3.0 && echo Y)
+
+CFLAGS = -g
+LDFLAGS = -levent -lm
 
 ifeq ($(NL2FOUND),Y)
 CFLAGS += -DCONFIG_LIBNL20
@@ -45,7 +48,7 @@ NLVERSION :=$(shell $(PKG_CONFIG) --print-provides $(NLLIBNAME))
 
 CFLAGS+=-DVERSION_STR=$(VERSION_STR) -g
 LDFLAGS+=-lconfig 
-OBJECTS=wmediumd.o probability.o mac_address.o config.o
+OBJECTS=wmediumd.o probability.o mac_address.o config.o per.o
 
 all: wmediumd 
 
