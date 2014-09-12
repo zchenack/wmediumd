@@ -29,7 +29,6 @@
 #include "wmediumd.h"
 
 extern struct jammer_cfg jam_cfg;
-extern double *prob_matrix;
 extern int size;
 
 /*
@@ -232,7 +231,7 @@ int load_config(const char *file)
 	size = count_ids;
 	printf("#_if = %d\n",count_ids);
 	/*Initialize the probability*/
-	prob_matrix = init_probability(count_ids);
+	init_probability(count_ids);
 
 	/*Fill the mac_addr*/
 	for (i = 0; i < count_ids; i++) {
@@ -253,30 +252,6 @@ int load_config(const char *file)
 	   && rates_prob != rates_value) {
 		printf("Error on prob_list");
 		exit(EXIT_FAILURE);
-	}
-
-	/*Iterate all matrix arrays*/
-	for (i=0; i < rates_prob ; i++) {
-		int x = 0, y = 0;
-		mat_array = config_setting_get_elem(prob_list,i);
-		/*If any error break execution*/
-		if (config_setting_length(mat_array) != count_ids*count_ids) {
-    			exit(EXIT_FAILURE);
-		}
-		/*Iterate all values on matrix array*/
-		for (j=0; j < config_setting_length(mat_array); ) {
-			MATRIX_PROB(prob_matrix,count_ids,x,y,i) =
-			config_setting_get_float_elem(mat_array,j);
-			//printf("%f, ", config_setting_get_float_elem(mat_array,j));
-			x++;
-			j++;
-			/* if we finalized this row */
-			if (j%count_ids==0) {
-				y++;
-				x=0;
-				//printf("*******j:%d,count_ids:%d \n",j,count_ids);
-			}
-		}
 	}
 
 	config_destroy(cf);

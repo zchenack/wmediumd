@@ -97,52 +97,9 @@ void print_mac_address_array() {
 }
 
 /*
- * 	Fills the probability matrix with a given value
- */
-
-void fill_prob_matrix(double *aMatrix,double aValue) {
-	int i =0 , j=0 , k=0;
-
-
-	for (k=0; k < IEEE80211_AVAILABLE_RATES; k++) {
-		for (i = 0 ; i < array_size  ; i++ ) {
-			for (j = 0; j < array_size; j++) {
-				if (i==j)
-					MATRIX_PROB(aMatrix,array_size,i,j,k)=-1;
-				else {
-					double prob_per_link = aValue + (aValue / 15) * k;
-					prob_per_link = prob_per_link > 1.0 ? 1.0 : prob_per_link;
-					MATRIX_PROB(aMatrix,array_size,i,j,k)=prob_per_link;
-				}
-			}
-		}
-	}
-}
-
-/*
- * 	Prints the values of the probability matrix
- */
-
-void print_prob_matrix (double *aMatrix) {
-
-	int i,j,k;
-
-	for (k=0; k < IEEE80211_AVAILABLE_RATES; k++) {
-		for (i=0; i < array_size ; i++) {
-			for (j=0; j < array_size; j++) {
-				printf("[%10f]",MATRIX_PROB(aMatrix,array_size,i,j,k));
-			}
-			printf("\n");
-		}
-		printf("Matrix rate = %d\n",k);
-	}
-}
-
-/*
  *	Init all the probability data
  *	Returns a pointer to the probability matrix
  */
-
 double * init_probability(int size) {
 
 	array_size = size;
@@ -152,10 +109,4 @@ double * init_probability(int size) {
 		printf("Problem allocating vector");
 		exit(1);
 	}
-
- 	/*Let's create the matrix */
- 	double * mat = malloc(sizeof(double)*(size*size)*IEEE80211_AVAILABLE_RATES);
- 	/* Zero-it */
- 	memset(mat,0,sizeof(double)*(size*size)*IEEE80211_AVAILABLE_RATES);
- 	return mat;
 }

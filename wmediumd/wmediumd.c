@@ -43,7 +43,6 @@ struct genl_family *family;
 
 int running = 0;
 struct jammer_cfg jam_cfg;
-double *prob_matrix;
 int size;
 
 static int received = 0;
@@ -469,8 +468,6 @@ int main(int argc, char* argv[])
 	if (optind < argc)
 		print_help(EXIT_FAILURE);
 
-	print_prob_matrix(prob_matrix);
-
 	/*Handle kill signals*/
 	running = 1;
 	signal(SIGUSR1, kill_handler);
@@ -497,7 +494,6 @@ int main(int argc, char* argv[])
 	free(cb);
 	free(cache);
 	free(family);
-	free(prob_matrix);
 
 	return EXIT_SUCCESS;
 }
