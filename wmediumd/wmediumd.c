@@ -53,16 +53,6 @@ static int acked = 0;
 
 
 /*
- * 	Generates a random double value
- */
-
-double generate_random_double()
-{
-
-	return rand()/((double)RAND_MAX+1);
-}
-
-/*
  *	Send a tx_info frame to the kernel space.
  */
 
@@ -169,7 +159,7 @@ int send_frame_msg_apply_prob_and_rate(struct nl_sock *sock,
 	/* At higher rates higher loss probability*/
 	double snr = 25;
 	double prob_per_link = get_error_prob(snr, rate_idx, data_len);
-	double random_double = generate_random_double();
+	double random_double = drand48();
 
 	if (random_double < prob_per_link) {
 		//printf("dropped\n");
