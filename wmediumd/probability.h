@@ -36,12 +36,6 @@ void print_mac_address_array();
 void fill_prob_matrix(double *aMatrix,double aValue);
 void print_prob_matrix (double *aMatrix);
 
-double generate_random_double();
-double find_prob_by_addrs_and_rate (double *aMatrix,struct mac_address *src, 
-				    struct mac_address *dst, int rate_idx);
-
 double * init_probability(int size);
-
-
 
 #endif /* PROBABILITY_H_ */

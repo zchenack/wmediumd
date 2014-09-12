@@ -139,28 +139,6 @@ void print_prob_matrix (double *aMatrix) {
 }
 
 /*
- *	Returns the loss probability for a given radio link, and rate
- * 	If an error occurs returns -1;
- */
-
-double find_prob_by_addrs_and_rate (double *aMatrix, struct mac_address *src,
-				    struct mac_address *dst, int rate_idx) {
-
-	int x = find_pos_by_mac_address(src);
-	int y = find_pos_by_mac_address(dst);
-
-	//printf("[%d][%d] rate:%d ploss=%f ",x,y,rate_idx,MATRIX_PROB(aMatrix,array_size,x,y,rate_idx));
-
-	if (x == -1 || y ==-1)
-		return -1;
-	return MATRIX_PROB(aMatrix,array_size,x,y,rate_idx);
-}
-
-
-
-
-
-/*
  *	Init all the probability data
  *	Returns a pointer to the probability matrix
  */
