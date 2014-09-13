@@ -2,7 +2,7 @@
  *	wmediumd, wireless medium simulator for mac80211_hwsim kernel module
  *	Copyright (c) 2011 cozybit Inc.
  *
- *	Author:	Javier Lopez 	<jlopex@cozybit.com>
+ *	Author:	Javier Lopez	<jlopex@cozybit.com>
  *		Javier Cardona	<javier@cozybit.com>
  *
  *	This program is free software; you can redistribute it and/or
@@ -54,7 +54,6 @@ static int acked = 0;
 /*
  *	Send a tx_info frame to the kernel space.
  */
-
 int send_tx_info_frame_nl(struct nl_sock *sock,
 			  struct mac_address *src,
 			  unsigned int flags, int signal,
@@ -96,9 +95,8 @@ out:
 }
 
 /*
- * 	Send a cloned frame to the kernel space.
+ *	Send a cloned frame to the kernel space.
  */
-
 int send_cloned_frame_msg(struct nl_sock *sock,
 			  struct mac_address *dst,
 			  char *data, int data_len, int rate_idx, int signal)
@@ -134,9 +132,8 @@ out:
 }
 
 /*
- * 	Get a signal value by rate index
+ *	Get a signal value by rate index
  */
-
 int get_signal_by_rate(int rate_idx)
 {
 	const int rate2signal [] =
@@ -147,9 +144,8 @@ int get_signal_by_rate(int rate_idx)
 }
 
 /*
- * 	Send a frame applying the loss probability of the link
+ *	Send a frame applying the loss probability of the link
  */
-
 int send_frame_msg_apply_prob_and_rate(struct nl_sock *sock,
 				       struct mac_address *src,
 				       struct mac_address *dst,
@@ -160,13 +156,12 @@ int send_frame_msg_apply_prob_and_rate(struct nl_sock *sock,
 	double prob_per_link = get_error_prob(snr, rate_idx, data_len);
 	double random_double = drand48();
 
-	if (random_double < prob_per_link) {
+	if (0 && random_double < prob_per_link) {
 		//printf("dropped\n");
 		dropped++;
 		return 0;
 	} else {
 
-		//printf("sent\n");
 		/*received signal level*/
 		int signal = get_signal_by_rate(rate_idx);
 
@@ -177,15 +172,14 @@ int send_frame_msg_apply_prob_and_rate(struct nl_sock *sock,
 }
 
 /*
- * 	Set a tx_rate struct to not valid values
+ *	Set a tx_rate struct to not valid values
  */
-
 void set_all_rates_invalid(struct hwsim_tx_rate* tx_rate)
 {
 	int i;
 	/* set up all unused rates to be -1 */
 	for (i=0; i < IEEE80211_MAX_RATES_PER_TX; i++) {
-        	tx_rate[i].idx = -1;
+		tx_rate[i].idx = -1;
 		tx_rate[i].count = 0;
 	}
 }
@@ -207,9 +201,8 @@ int jam_mac(struct jammer_cfg *jcfg, struct mac_address *src)
 }
 
 /*
- * 	Iterate all the radios and send a copy of the frame to each interface.
+ *	Iterate all the radios and send a copy of the frame to each interface.
  */
-
 void send_frames_to_radios_with_retries(struct nl_sock *sock,
 					struct mac_address *src, char*data,
 					int data_len, unsigned int flags,
@@ -286,9 +279,8 @@ void send_frames_to_radios_with_retries(struct nl_sock *sock,
 }
 
 /*
- * 	Callback function to process messages received from kernel
+ *	Callback function to process messages received from kernel
  */
-
 static int process_messages_cb(struct nl_msg *msg, void *arg)
 {
 	struct nl_sock *sock = arg;
@@ -328,9 +320,8 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 }
 
 /*
- * 	Send a register message to kernel
+ *	Send a register message to kernel
  */
-
 int send_register_msg(struct nl_sock *sock)
 {
 	msg = nlmsg_alloc();
@@ -395,7 +386,6 @@ struct nl_sock *init_netlink()
 /*
  *	Print the CLI help
  */
-
 void print_help(int exval)
 {
 	printf("wmediumd v%s - a wireless medium simulator\n", VERSION_STR);
@@ -431,7 +421,7 @@ int main(int argc, char* argv[])
 		switch(opt) {
 		case 'h':
 			print_help(EXIT_SUCCESS);
-    			break;
+			break;
 		case 'V':
 			printf("wmediumd v%s - a wireless medium simulator "
 			       "for mac80211_hwsim\n", VERSION_STR);
@@ -468,7 +458,7 @@ int main(int argc, char* argv[])
 	if (optind < argc)
 		print_help(EXIT_FAILURE);
 
-	/*Handle kill signals*/
+	/* Handle kill signals */
 	running = 1;
 	signal(SIGUSR1, kill_handler);
 
@@ -488,7 +478,7 @@ int main(int argc, char* argv[])
 	/* enter libevent main loop */
 	event_dispatch();
 
-	/*Free all memory*/
+	/* Free all memory */
 	free(sock);
 	free(msg);
 	free(cb);
