@@ -29,8 +29,8 @@
 
 #include "mac_address.h"
 
-void put_mac_address(struct mac_address addr, int pos);
-struct mac_address *get_mac_address(int pos);
+void put_mac_address(u8 *addr, int pos);
+u8 *get_mac_address(int pos);
 void print_mac_address_array();
 
 void fill_prob_matrix(double *aMatrix,double aValue);

@@ -24,10 +24,7 @@
 #ifndef MAC_ADDRESS_H_
 #define MAC_ADDRESS_H_
 
-struct mac_address {
-	unsigned char addr[6];
-};
-
-struct mac_address string_to_mac_address(const char* str);
+#include "wmediumd.h"
+void string_to_mac_address(const char* str, u8 *addr);
 
 #endif /* MAC_ADDRESS_H_ */

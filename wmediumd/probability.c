@@ -30,18 +30,14 @@
 #include "ieee80211.h"
 
 static int array_size = 0;
-static struct mac_address *indexer;
 
+u8 *indexer;
 
-void put_mac_address(struct mac_address addr, int pos)
+void put_mac_address(u8 *addr, int pos)
 {
 	int i;
-	void *ptr = indexer;
-
- 	for (i=0; i < pos ; i++) {
- 		ptr = ptr + sizeof(struct mac_address);
- 	}
- 	memcpy(ptr, &addr, sizeof(struct mac_address));
+	void *ptr = indexer + ETH_ALEN * pos;
+	memcpy(ptr, addr, ETH_ALEN);
 }
 
 
@@ -49,12 +45,12 @@ void put_mac_address(struct mac_address addr, int pos)
  * returns the a mac_address ptr for a given index
  */
 
-struct mac_address * get_mac_address(int pos) {
+u8 * get_mac_address(int pos) {
 
 	void * ptr = indexer;
-	ptr = ptr + (sizeof(struct mac_address)*pos);
+	ptr = ptr + (ETH_ALEN*pos);
 
-	return ((pos >= array_size) ?  NULL : (struct mac_address*)ptr);
+	return ((pos >= array_size) ?  NULL : (u8*)ptr);
 }
 
 /*
@@ -62,15 +58,15 @@ struct mac_address * get_mac_address(int pos) {
  * 	If the mac_address is not found returns -1
  */
 
-int find_pos_by_mac_address(struct mac_address *addr) {
+int find_pos_by_mac_address(u8 *addr) {
 
 	int i=0;
 
 	void * ptr = indexer;
-	while(memcmp(ptr,addr,sizeof(struct mac_address)) && i < array_size)
+	while(memcmp(ptr,addr,ETH_ALEN) && i < array_size)
 	{
 		i++;
-		ptr = ptr + sizeof(struct mac_address);
+		ptr = ptr + ETH_ALEN;
 	}
 
 	return ((i >= array_size) ?  -1 :  i);
@@ -83,16 +79,13 @@ int find_pos_by_mac_address(struct mac_address *addr) {
 void print_mac_address_array() {
 
 	int i=0;
-	void * ptr = indexer;
+	u8 *ptr = indexer;
 
 	while (i < array_size) {
-		struct mac_address *a = malloc(sizeof(struct mac_address));
-		memcpy(a,ptr,sizeof(struct mac_address));
 		printf("A[%d]:%02X:%02X:%02X:%02X:%02X:%02X\n",
-		       i,a->addr[0], a->addr[1], a->addr[2],
-		       a->addr[3], a->addr[4], a->addr[5]);
+		       i, ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], ptr[5]);
 		i++;
-		ptr = ptr + sizeof(struct mac_address);
+		ptr = ptr + ETH_ALEN;
 	}
 }
 
@@ -103,7 +96,7 @@ void print_mac_address_array() {
 double * init_probability(int size) {
 
 	array_size = size;
-	indexer = malloc(sizeof(struct mac_address)*array_size);
+	indexer = malloc(ETH_ALEN*array_size);
 
 	if (indexer==NULL) {
 		printf("Problem allocating vector");

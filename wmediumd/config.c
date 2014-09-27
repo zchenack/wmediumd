@@ -204,14 +204,14 @@ int load_config(const char *file)
 			break;
 		case CONFIG_TYPE_ARRAY:
 			jam_cfg.nmacs = config_setting_length(jammer_s);
-			jam_cfg.macs = malloc(sizeof(struct mac_address) * jam_cfg.nmacs);
+			jam_cfg.macs = malloc(ETH_ALEN * jam_cfg.nmacs);
 			if (!jam_cfg.macs) {
 				printf("couldn't allocate jamming mac table!\n");
 				exit(EXIT_FAILURE);
 			}
 			for (i = 0; i < jam_cfg.nmacs; i++) {
-				jam_cfg.macs[i] = string_to_mac_address(
-						      config_setting_get_string_elem(jammer_s, i));
+				string_to_mac_address(config_setting_get_string_elem(jammer_s, i),
+                                      &jam_cfg.macs[i * ETH_ALEN]);
 			}
 			break;
 		}
@@ -235,9 +235,11 @@ int load_config(const char *file)
 
 	/*Fill the mac_addr*/
 	for (i = 0; i < count_ids; i++) {
-    		const char *str =  config_setting_get_string_elem(ids, i);
-    		put_mac_address(string_to_mac_address(str),i);
-    	}
+		u8 addr[ETH_ALEN];
+		const char *str =  config_setting_get_string_elem(ids, i);
+		string_to_mac_address(str,addr);
+		put_mac_address(addr,i);
+	}
 	/*Print the mac_addr array*/
 	print_mac_address_array();
 

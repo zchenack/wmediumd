@@ -43,6 +43,14 @@
 #define HWSIM_ATTR_MAX 8
 #define VERSION_NR 1
 
+#include <stdint.h>
+
+typedef uint8_t u8;
+
+#ifndef ETH_ALEN
+#define ETH_ALEN 6
+#endif
+
 struct hwsim_tx_rate {
         signed char idx;
         unsigned char count;
@@ -50,7 +58,7 @@ struct hwsim_tx_rate {
 
 struct jammer_cfg {
 	int jam_all;
-	struct mac_address *macs;
+	u8 *macs;
 	int nmacs;
 };
 #endif /* WMEDIUMD_H_ */

@@ -55,7 +55,7 @@ static int acked = 0;
  *	Send a tx_info frame to the kernel space.
  */
 int send_tx_info_frame_nl(struct nl_sock *sock,
-			  struct mac_address *src,
+			  u8 *src,
 			  unsigned int flags, int signal,
 			  struct hwsim_tx_rate *tx_attempts,
 			  unsigned long cookie)
@@ -71,8 +71,7 @@ int send_tx_info_frame_nl(struct nl_sock *sock,
 		    0, NLM_F_REQUEST, HWSIM_CMD_TX_INFO_FRAME, VERSION_NR);
 
 	int rc;
-	rc = nla_put(msg, HWSIM_ATTR_ADDR_TRANSMITTER,
-		     sizeof(struct mac_address), src);
+	rc = nla_put(msg, HWSIM_ATTR_ADDR_TRANSMITTER, ETH_ALEN, src);
 	rc = nla_put_u32(msg, HWSIM_ATTR_FLAGS, flags);
 	rc = nla_put_u32(msg, HWSIM_ATTR_SIGNAL, signal);
 	rc = nla_put(msg, HWSIM_ATTR_TX_INFO,
@@ -97,8 +96,7 @@ out:
 /*
  *	Send a cloned frame to the kernel space.
  */
-int send_cloned_frame_msg(struct nl_sock *sock,
-			  struct mac_address *dst,
+int send_cloned_frame_msg(struct nl_sock *sock, u8 *dst,
 			  char *data, int data_len, int rate_idx, int signal)
 {
 
@@ -112,11 +110,11 @@ int send_cloned_frame_msg(struct nl_sock *sock,
 		    0, NLM_F_REQUEST, HWSIM_CMD_FRAME, VERSION_NR);
 
 	int rc;
-	rc = nla_put(msg, HWSIM_ATTR_ADDR_RECEIVER,
-		     sizeof(struct mac_address), dst);
+
+	rc = nla_put(msg, HWSIM_ATTR_ADDR_RECEIVER, ETH_ALEN, dst);
 	rc = nla_put(msg, HWSIM_ATTR_FRAME, data_len, data);
-	rc = nla_put_u32(msg, HWSIM_ATTR_RX_RATE, rate_idx);
-	rc = nla_put_u32(msg, HWSIM_ATTR_SIGNAL, signal);
+	rc = nla_put_u32(msg, HWSIM_ATTR_RX_RATE, 1);
+	rc = nla_put_u32(msg, HWSIM_ATTR_SIGNAL, -50);
 
 	if(rc!=0) {
 		printf("Error filling payload\n");
@@ -147,8 +145,8 @@ int get_signal_by_rate(int rate_idx)
  *	Send a frame applying the loss probability of the link
  */
 int send_frame_msg_apply_prob_and_rate(struct nl_sock *sock,
-				       struct mac_address *src,
-				       struct mac_address *dst,
+				       u8 *src,
+				       u8 *dst,
 				       char *data, int data_len, int rate_idx)
 {
 	/* At higher rates higher loss probability*/
@@ -187,12 +185,12 @@ void set_all_rates_invalid(struct hwsim_tx_rate* tx_rate)
 /*
  *	Determine whether we should be jamming this transmitting mac.
  */
-int jam_mac(struct jammer_cfg *jcfg, struct mac_address *src)
+int jam_mac(struct jammer_cfg *jcfg, u8 *src)
 {
 	int jam = 0, i;
 
 	for (i = 0; i < jcfg->nmacs; i++) {
-		if (!memcmp(&jcfg->macs[i], src, sizeof(struct mac_address))) {
+		if (!memcmp(&jcfg->macs[i], src, ETH_ALEN)) {
 			jam = 1;
 			break;
 		}
@@ -203,14 +201,13 @@ int jam_mac(struct jammer_cfg *jcfg, struct mac_address *src)
 /*
  *	Iterate all the radios and send a copy of the frame to each interface.
  */
-void send_frames_to_radios_with_retries(struct nl_sock *sock,
-					struct mac_address *src, char*data,
+void send_frames_to_radios_with_retries(struct nl_sock *sock, u8 *src, char*data,
 					int data_len, unsigned int flags,
 					struct hwsim_tx_rate *tx_rates,
 					unsigned long cookie)
 {
 
-	struct mac_address *dst;
+	u8 *dst;
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)data;
 	struct hwsim_tx_rate tx_attempts[IEEE80211_MAX_RATES_PER_TX];
 
@@ -242,7 +239,7 @@ void send_frames_to_radios_with_retries(struct nl_sock *sock,
 				 * If origin and destination are the
 				 * same just skip this iteration
 				*/
-				if(memcmp(src,dst,sizeof(struct mac_address))
+				if(memcmp(src,dst,ETH_ALEN)
 					  == 0 ){
 					continue;
 				}
@@ -254,7 +251,7 @@ void send_frames_to_radios_with_retries(struct nl_sock *sock,
 					sock, src, dst, data, data_len,
 					tx_attempts[round].idx) &&
 					memcmp(dst, hdr->addr1,
-					sizeof(struct mac_address))==0) {
+					ETH_ALEN)==0) {
 						tx_ok = 1;
 				}
 			}
@@ -306,8 +303,7 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 		/* we get the attributes*/
 		genlmsg_parse(nlh, 0, attrs, HWSIM_ATTR_MAX, NULL);
 		if (attrs[HWSIM_ATTR_ADDR_TRANSMITTER]) {
-			struct mac_address *src = (struct mac_address*)
-				nla_data(attrs[HWSIM_ATTR_ADDR_TRANSMITTER]);
+			u8 *src = (u8 *) nla_data(attrs[HWSIM_ATTR_ADDR_TRANSMITTER]);
 
 			unsigned int data_len =
 				nla_len(attrs[HWSIM_ATTR_FRAME]);

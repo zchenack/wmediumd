@@ -24,20 +24,16 @@
 #include <stdio.h>
 #include "mac_address.h"
 
-struct mac_address string_to_mac_address(const char* str)
+void string_to_mac_address(const char* str, u8 *addr)
 {
-	struct mac_address mac;
-	int a[6];
-
+    u8 a[ETH_ALEN];
 	sscanf(str, "%x:%x:%x:%x:%x:%x", 
 	       &a[0], &a[1], &a[2], &a[3], &a[4], &a[5]);
 
-	mac.addr[0] = a[0];
-	mac.addr[1] = a[1];
-	mac.addr[2] = a[2];
-	mac.addr[3] = a[3];
-	mac.addr[4] = a[4];
-	mac.addr[5] = a[5];
-
-	return mac;
+	addr[0] = a[0];
+	addr[1] = a[1];
+	addr[2] = a[2];
+	addr[3] = a[3];
+	addr[4] = a[4];
+	addr[5] = a[5];
 }
