@@ -314,18 +314,14 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 			char* data = (char*)nla_data(attrs[HWSIM_ATTR_FRAME]);
 			unsigned int flags =
 				nla_get_u32(attrs[HWSIM_ATTR_FLAGS]);
-		//	printf("flags: %d\n", flags);
 			struct hwsim_tx_rate *tx_rates =
 				(struct hwsim_tx_rate*)
 				nla_data(attrs[HWSIM_ATTR_TX_INFO]);
 			unsigned long cookie = nla_get_u64(attrs[HWSIM_ATTR_COOKIE]);
 			received++;
 
-			//printf("frame [%d] length:%d\n",received,data_len);
 			send_frames_to_radios_with_retries(sock, src, data,
 					data_len, flags, tx_rates, cookie);
-			//printf("\rreceived: %d tried: %d sent: %d acked: %d",
-			//		received, dropped+sent, sent, acked);
 		}
 	}
 	return 0;
