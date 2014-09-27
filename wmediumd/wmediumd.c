@@ -278,6 +278,18 @@ void send_frames_to_radios_with_retries(struct nl_sock *sock,
 	}
 }
 
+static
+int nl_err_cb(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void *arg)
+{
+	struct genlmsghdr *gnlh = nlmsg_data(&nlerr->msg);
+
+	fprintf(stderr, "nl: cmd %d, seq %d: %s\n", gnlh->cmd,
+		nlerr->msg.nlmsg_seq, strerror(abs(nlerr->error)));
+
+	return NL_SKIP;
+}
+
+
 /*
  *	Callback function to process messages received from kernel
  */
@@ -380,6 +392,7 @@ struct nl_sock *init_netlink()
 	}
 
 	nl_cb_set(cb, NL_CB_MSG_IN, NL_CB_CUSTOM, process_messages_cb, sock);
+	nl_cb_err(cb, NL_CB_CUSTOM, nl_err_cb, sock);
 	return sock;
 }
 
