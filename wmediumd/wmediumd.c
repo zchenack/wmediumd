@@ -80,6 +80,7 @@ struct frame
 	long cookie;
 	int flags;
 	int tx_rates_count;
+	struct station *sender;
 	struct hwsim_tx_rate tx_rates[IEEE80211_TX_MAX_RATES];
 	size_t data_len;
 	u8 data[0];			/* frame contents */
@@ -169,7 +170,7 @@ void deliver_frame(struct wmediumd *ctx, struct frame *frame)
 	struct ieee80211_hdr *hdr = (void *) frame->data;
 	struct station *station;
 	u8 *dest = hdr->addr1;
-	u8 *src = hdr->addr2;
+	u8 *src = frame->sender->addr;
 
 	int signal = 35;
 
@@ -189,7 +190,7 @@ void deliver_frame(struct wmediumd *ctx, struct frame *frame)
 		}
 	}
 
-	send_tx_info_frame_nl(ctx->sock, src, frame->flags, signal,
+	send_tx_info_frame_nl(ctx->sock, frame->sender, frame->flags, signal,
 			      frame->tx_rates, frame->cookie);
 
 	free(frame);
@@ -371,6 +372,7 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 			frame->data_len = data_len;
 			frame->flags = flags;
 			frame->cookie = cookie;
+			frame->sender = sender;
 			frame->tx_rates_count =
 				tx_rates_len / sizeof(struct hwsim_tx_rate);
 			memcpy(frame->tx_rates, tx_rates,
