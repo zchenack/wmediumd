@@ -51,6 +51,10 @@ typedef uint8_t u8;
 #define ETH_ALEN 6
 #endif
 
+#ifndef min
+#define min(x,y) ((x) < (y) ? (x) : (y))
+#endif
+
 struct hwsim_tx_rate {
         signed char idx;
         unsigned char count;

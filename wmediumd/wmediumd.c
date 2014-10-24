@@ -78,9 +78,9 @@ struct frame
 	struct timespec expires;	/* frame delivery (absolute) */
 	bool acked;
 	long cookie;
-	int tx_rates_count;
 	int flags;
-	struct hwsim_tx_rate *tx_rates;
+	int tx_rates_count;
+	struct hwsim_tx_rate tx_rates[IEEE80211_TX_MAX_RATES];
 	size_t data_len;
 	u8 data[0];			/* frame contents */
 };
@@ -192,7 +192,6 @@ void deliver_frame(struct wmediumd *ctx, struct frame *frame)
 	send_tx_info_frame_nl(ctx->sock, src, frame->flags, signal,
 			      frame->tx_rates, frame->cookie);
 
-	free(frame->tx_rates);
 	free(frame);
 }
 
@@ -248,8 +247,8 @@ int send_tx_info_frame_nl(struct nl_sock *sock,
 	rc = nla_put_u32(msg, HWSIM_ATTR_FLAGS, flags);
 	rc = nla_put_u32(msg, HWSIM_ATTR_SIGNAL, signal);
 	rc = nla_put(msg, HWSIM_ATTR_TX_INFO,
-		     IEEE80211_MAX_RATES_PER_TX *
-		     sizeof(struct hwsim_tx_rate), tx_attempts);
+		     IEEE80211_TX_MAX_RATES * sizeof(struct hwsim_tx_rate),
+		     tx_attempts);
 
 	rc = nla_put_u64(msg, HWSIM_ATTR_COOKIE, cookie);
 
@@ -367,9 +366,6 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 			frame = malloc(sizeof(*frame) + data_len);
 			if (!frame)
 				goto out;
-			frame->tx_rates = malloc(tx_rates_len);
-			if (!frame->tx_rates)
-				goto out_free_frame;
 
 			memcpy(frame->data, data, data_len);
 			frame->data_len = data_len;
@@ -377,7 +373,8 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 			frame->cookie = cookie;
 			frame->tx_rates_count =
 				tx_rates_len / sizeof(struct hwsim_tx_rate);
-			memcpy(frame->tx_rates, tx_rates, tx_rates_len);
+			memcpy(frame->tx_rates, tx_rates,
+			       min(tx_rates_len, sizeof(frame->tx_rates)));
 			queue_frame(ctx, sender, frame);
 		}
 	}
