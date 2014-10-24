@@ -29,12 +29,15 @@
 #include <getopt.h>
 #include <signal.h>
 #include <event.h>
+#include <stdbool.h>
+#include <sys/timerfd.h>
 
 #include "wmediumd.h"
 #include "probability.h"
 #include "mac_address.h"
 #include "ieee80211.h"
 #include "config.h"
+#include "list.h"
 
 struct nl_msg *msg;
 struct nl_cb *cb;
@@ -50,6 +53,176 @@ static int sent = 0;
 static int dropped = 0;
 static int acked = 0;
 
+#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
+#define MAC_ARGS(a) a[0],a[1],a[2],a[3],a[4],a[5]
+
+struct wmediumd
+{
+	int timerfd;
+
+	struct nl_sock *sock;
+	struct list_head stations;
+};
+
+struct station
+{
+	char addr[ETH_ALEN];
+	struct list_head data_queue;
+	struct list_head mgmt_queue;
+	struct list_head list;
+};
+
+struct frame
+{
+	struct list_head list;		/* frame queue list */
+	struct timespec expires;	/* frame delivery (absolute) */
+	bool acked;
+	long cookie;
+	int tx_rates_count;
+	int flags;
+	struct hwsim_tx_rate *tx_rates;
+	size_t data_len;
+	u8 data[0];			/* frame contents */
+};
+
+
+bool timespec_before(struct timespec *t1, struct timespec *t2)
+{
+	return t1->tv_sec < t2->tv_sec ||
+	       (t1->tv_sec == t2->tv_sec && t1->tv_nsec < t2->tv_nsec);
+}
+
+void rearm_timer(struct wmediumd *ctx)
+{
+	struct timespec min_expires;
+	struct itimerspec expires = {};
+	struct station *station;
+	struct frame *frame;
+
+	/*
+	 * Iterate over all the interfaces to find the next frame that
+	 * will be delivered, and set the timerfd accordingly.
+	 */
+	list_for_each_entry(station, &ctx->stations, list) {
+		frame = list_first_entry(&station->mgmt_queue,
+					 struct frame, list);
+		if (frame && timespec_before(&frame->expires, &min_expires))
+			min_expires = frame->expires;
+
+		frame = list_first_entry(&station->data_queue,
+					 struct frame, list);
+		if (frame && timespec_before(&frame->expires, &min_expires))
+			min_expires = frame->expires;
+	}
+	expires.it_value = min_expires;
+	timerfd_settime(ctx->timerfd, TFD_TIMER_ABSTIME, &expires, NULL);
+}
+
+bool frame_is_mgmt(struct frame *frame)
+{
+	struct ieee80211_hdr *hdr = (void *) frame->data;
+	return (hdr->frame_control[0] & 0x0c) == 0;
+}
+
+void queue_frame(struct wmediumd *ctx, struct station *station,
+		 struct frame *frame)
+{
+	struct timespec now;
+	struct list_head *queue;
+
+	/*
+	 * To determine a frame's expiration time, we compute the
+	 * number of retries we might have to make due to radio conditions
+	 * or contention, and add backoff time accordingly.  To that, we
+	 * add the expiration time of the previous frame in the queue.
+	 */
+	queue = frame_is_mgmt(frame) ? &station->mgmt_queue : &station->data_queue;
+	list_add_tail(&frame->list, queue);
+
+	/* TODO set expires properly */
+	/* TODO compute frame attempts / ack status using per_model */
+	/*
+	 *
+	 * rand = drand48();
+	 * for each rate_idx, ct in rateset:
+	 *    for each attempt:
+	 *      is_ack = rand < get_error_prob(snr, rate_idx, data_len);
+	 *      time += airtime + backoff
+	 *      if is_ack break
+	 */
+	frame->tx_rates[0].count = 1;
+	frame->tx_rates[1].count = -1;
+	frame->flags |= HWSIM_TX_STAT_ACK;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	frame->expires = now;
+	rearm_timer(ctx);
+}
+
+bool is_multicast_ether_addr(const u8 *addr)
+{
+	return 0x01 & addr[0];
+}
+
+void deliver_frame(struct wmediumd *ctx, struct frame *frame)
+{
+	struct ieee80211_hdr *hdr = (void *) frame->data;
+	struct station *station;
+	u8 *dest = hdr->addr1;
+	u8 *src = hdr->addr2;
+
+	int signal = 35;
+
+	if (frame->flags & HWSIM_TX_STAT_ACK) {
+		/* rx the frame on the dest interface */
+		list_for_each_entry(station, &ctx->stations, list) {
+			if (memcmp(src, station->addr, ETH_ALEN) == 0)
+				continue;
+
+			if (is_multicast_ether_addr(dest) ||
+			    memcmp(dest, station->addr, ETH_ALEN) == 0) {
+				send_cloned_frame_msg(ctx->sock, station->addr,
+						      frame->data,
+						      frame->data_len,
+						      1, signal);
+			}
+		}
+	}
+
+	send_tx_info_frame_nl(ctx->sock, src, frame->flags, signal,
+			      frame->tx_rates, frame->cookie);
+
+	free(frame->tx_rates);
+	free(frame);
+}
+
+void deliver_expired_frames_queue(struct wmediumd *ctx,
+				  struct list_head *queue,
+				  struct timespec *now)
+{
+	struct frame *frame, *tmp;
+
+	list_for_each_entry_safe(frame, tmp, queue, list) {
+		if (timespec_before(&frame->expires, now)) {
+			list_del(&frame->list);
+			deliver_frame(ctx, frame);
+		} else {
+			break;
+		}
+	}
+}
+
+void deliver_expired_frames(struct wmediumd *ctx)
+{
+	struct timespec now;
+	struct station *station;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	list_for_each_entry(station, &ctx->stations, list) {
+		deliver_expired_frames_queue(ctx, &station->mgmt_queue, &now);
+		deliver_expired_frames_queue(ctx, &station->data_queue, &now);
+	}
+}
 
 /*
  *	Send a tx_info frame to the kernel space.
@@ -129,152 +302,6 @@ out:
 	return -1;
 }
 
-/*
- *	Get a signal value by rate index
- */
-int get_signal_by_rate(int rate_idx)
-{
-	const int rate2signal [] =
-		{ -80,-77,-74,-71,-69,-66,-64,-62,-59,-56,-53,-50 };
-	if (rate_idx >= 0 || rate_idx < IEEE80211_AVAILABLE_RATES)
-		return rate2signal[rate_idx];
-	return 0;
-}
-
-/*
- *	Send a frame applying the loss probability of the link
- */
-int send_frame_msg_apply_prob_and_rate(struct nl_sock *sock,
-				       u8 *src,
-				       u8 *dst,
-				       char *data, int data_len, int rate_idx)
-{
-	/* At higher rates higher loss probability*/
-	double snr = 25;
-	double prob_per_link = get_error_prob(snr, rate_idx, data_len);
-	double random_double = drand48();
-
-	if (0 && random_double < prob_per_link) {
-		//printf("dropped\n");
-		dropped++;
-		return 0;
-	} else {
-
-		/*received signal level*/
-		int signal = get_signal_by_rate(rate_idx);
-
-		send_cloned_frame_msg(sock, dst,data,data_len,rate_idx,signal);
-		sent++;
-		return 1;
-	}
-}
-
-/*
- *	Set a tx_rate struct to not valid values
- */
-void set_all_rates_invalid(struct hwsim_tx_rate* tx_rate)
-{
-	int i;
-	/* set up all unused rates to be -1 */
-	for (i=0; i < IEEE80211_MAX_RATES_PER_TX; i++) {
-		tx_rate[i].idx = -1;
-		tx_rate[i].count = 0;
-	}
-}
-
-/*
- *	Determine whether we should be jamming this transmitting mac.
- */
-int jam_mac(struct jammer_cfg *jcfg, u8 *src)
-{
-	int jam = 0, i;
-
-	for (i = 0; i < jcfg->nmacs; i++) {
-		if (!memcmp(&jcfg->macs[i], src, ETH_ALEN)) {
-			jam = 1;
-			break;
-		}
-	}
-	return jam;
-}
-
-/*
- *	Iterate all the radios and send a copy of the frame to each interface.
- */
-void send_frames_to_radios_with_retries(struct nl_sock *sock, u8 *src, char*data,
-					int data_len, unsigned int flags,
-					struct hwsim_tx_rate *tx_rates,
-					unsigned long cookie)
-{
-
-	u8 *dst;
-	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)data;
-	struct hwsim_tx_rate tx_attempts[IEEE80211_MAX_RATES_PER_TX];
-
-	int round = 0, tx_ok = 0, counter, i;
-
-	if (jam_cfg.jam_all || jam_mac(&jam_cfg, src)) {
-		printf("medium busy!\n");
-		return;
-	}
-	/* We prepare the tx_attempts struct */
-	set_all_rates_invalid(tx_attempts);
-
-	while (round < IEEE80211_MAX_RATES_PER_TX &&
-	       tx_rates[round].idx != -1 && tx_ok!=1) {
-
-		counter = 1;
-
-		/* Set rate index and flags used for this round */
-		tx_attempts[round].idx = tx_rates[round].idx;
-
-		while(counter <= tx_rates[round].count && tx_ok !=1 ) {
-
-			/* Broadcast the frame to all the radio ifaces*/
-			for (i=0;i<size;i++) {
-
-				dst =  get_mac_address(i);
-
-				/*
-				 * If origin and destination are the
-				 * same just skip this iteration
-				*/
-				if(memcmp(src,dst,ETH_ALEN)
-					  == 0 ){
-					continue;
-				}
-
-				/* Try to send it to a radio and if
-				 * the frame is destined to this radio tx_ok
-				*/
-				if(send_frame_msg_apply_prob_and_rate(
-					sock, src, dst, data, data_len,
-					tx_attempts[round].idx) &&
-					memcmp(dst, hdr->addr1,
-					ETH_ALEN)==0) {
-						tx_ok = 1;
-				}
-			}
-			tx_attempts[round].count = counter;
-			counter++;
-		}
-		round++;
-	}
-
-	if (tx_ok) {
-		/* if tx is done and acked a frame with the tx_info is
-		 * sent to original radio iface
-		*/
-		acked++;
-		int signal = get_signal_by_rate(tx_attempts[round-1].idx);
-		/* Let's flag this frame as ACK'ed */
-		flags |= HWSIM_TX_STAT_ACK;
-		send_tx_info_frame_nl(sock, src, flags, signal, tx_attempts, cookie);
-	} else {
-		send_tx_info_frame_nl(sock, src, flags, 0, tx_attempts, cookie);
-	}
-}
-
 static
 int nl_err_cb(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void *arg)
 {
@@ -286,18 +313,32 @@ int nl_err_cb(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void *arg)
 	return NL_SKIP;
 }
 
+static struct station *get_station_by_addr(struct wmediumd *ctx, u8 *addr)
+{
+	struct station *station;
+	list_for_each_entry(station, &ctx->stations, list) {
+		if (memcmp(station->addr, addr, ETH_ALEN) == 0)
+			return station;
+	}
+	return NULL;
+}
+
 
 /*
  *	Callback function to process messages received from kernel
  */
 static int process_messages_cb(struct nl_msg *msg, void *arg)
 {
-	struct nl_sock *sock = arg;
+	struct wmediumd *ctx = arg;
+	struct nl_sock *sock = ctx->sock;
 	struct nlattr *attrs[HWSIM_ATTR_MAX+1];
 	/* netlink header */
 	struct nlmsghdr *nlh = nlmsg_hdr(msg);
 	/* generic netlink header*/
 	struct genlmsghdr *gnlh = nlmsg_data(nlh);
+
+	struct station *sender;
+	struct frame *frame;
 
 	if(gnlh->cmd == HWSIM_CMD_FRAME) {
 		/* we get the attributes*/
@@ -310,16 +351,41 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 			char* data = (char*)nla_data(attrs[HWSIM_ATTR_FRAME]);
 			unsigned int flags =
 				nla_get_u32(attrs[HWSIM_ATTR_FLAGS]);
+			unsigned int tx_rates_len =
+				nla_len(attrs[HWSIM_ATTR_TX_INFO]);
 			struct hwsim_tx_rate *tx_rates =
 				(struct hwsim_tx_rate*)
 				nla_data(attrs[HWSIM_ATTR_TX_INFO]);
 			unsigned long cookie = nla_get_u64(attrs[HWSIM_ATTR_COOKIE]);
+
 			received++;
 
-			send_frames_to_radios_with_retries(sock, src, data,
-					data_len, flags, tx_rates, cookie);
+			sender = get_station_by_addr(ctx, src);
+			if (!sender)
+				goto out;
+
+			frame = malloc(sizeof(*frame) + data_len);
+			if (!frame)
+				goto out;
+			frame->tx_rates = malloc(tx_rates_len);
+			if (!frame->tx_rates)
+				goto out_free_frame;
+
+			memcpy(frame->data, data, data_len);
+			frame->data_len = data_len;
+			frame->flags = flags;
+			frame->cookie = cookie;
+			frame->tx_rates_count =
+				tx_rates_len / sizeof(struct hwsim_tx_rate);
+			memcpy(frame->tx_rates, tx_rates, tx_rates_len);
+			queue_frame(ctx, sender, frame);
 		}
 	}
+out:
+	return 0;
+
+out_free_frame:
+	free(frame);
 	return 0;
 }
 
@@ -351,13 +417,14 @@ void kill_handler() {
 
 static void sock_event_cb(int fd, short what, void *data)
 {
-	nl_recvmsgs_default((struct nl_sock *) data);
+	struct wmediumd *ctx = data;
+	nl_recvmsgs_default(ctx->sock);
 }
 
 /*
  *	Init netlink
  */
-struct nl_sock *init_netlink()
+void init_netlink(struct wmediumd *ctx)
 {
 	struct nl_sock *sock;
 
@@ -373,6 +440,8 @@ struct nl_sock *init_netlink()
 		exit(EXIT_FAILURE);
 	}
 
+	ctx->sock = sock;
+
 	genl_connect(sock);
 	genl_ctrl_alloc_cache(sock, &cache);
 
@@ -383,9 +452,8 @@ struct nl_sock *init_netlink()
 		exit(EXIT_FAILURE);
 	}
 
-	nl_cb_set(cb, NL_CB_MSG_IN, NL_CB_CUSTOM, process_messages_cb, sock);
-	nl_cb_err(cb, NL_CB_CUSTOM, nl_err_cb, sock);
-	return sock;
+	nl_cb_set(cb, NL_CB_MSG_IN, NL_CB_CUSTOM, process_messages_cb, ctx);
+	nl_cb_err(cb, NL_CB_CUSTOM, nl_err_cb, ctx);
 }
 
 /*
@@ -405,13 +473,23 @@ void print_help(int exval)
 	exit(exval);
 }
 
+static void timer_cb(int fd, short what, void *data)
+{
+	struct wmediumd *ctx = data;
+	deliver_expired_frames(ctx);
+	rearm_timer(ctx);
+}
 
 int main(int argc, char* argv[])
 {
+	int i;
 	int opt, ifaces;
 	int fd;
 	struct nl_sock *sock;
 	struct event ev_cmd;
+	struct event ev_timer;
+	struct wmediumd ctx;
+	struct station *station;
 
 	/* Set stdout buffering to line mode */
 	setvbuf (stdout, NULL, _IOLBF, BUFSIZ);
@@ -467,24 +545,42 @@ int main(int argc, char* argv[])
 	running = 1;
 	signal(SIGUSR1, kill_handler);
 
+	INIT_LIST_HEAD(&ctx.stations);
+	for (i=0; i < size; i++) {
+		station = malloc(sizeof(*station));
+		if (!station) {
+			fprintf(stderr, "Out of memory!");
+			exit(1);
+		}
+		memcpy(station->addr, get_mac_address(i), ETH_ALEN);
+		INIT_LIST_HEAD(&station->data_queue);
+		INIT_LIST_HEAD(&station->mgmt_queue);
+		list_add_tail(&station->list, &ctx.stations);
+	}
+
 	/* init libevent */
 	event_init();
 
 	/* init netlink */
-	sock = init_netlink();
-	event_set(&ev_cmd, nl_socket_get_fd(sock), EV_READ | EV_PERSIST,
-		  sock_event_cb, sock);
+	init_netlink(&ctx);
+	event_set(&ev_cmd, nl_socket_get_fd(ctx.sock), EV_READ | EV_PERSIST,
+		  sock_event_cb, &ctx);
 	event_add(&ev_cmd, NULL);
 
+	/* setup timers */
+	ctx.timerfd = timerfd_create(CLOCK_MONOTONIC, 0);
+	event_set(&ev_timer, ctx.timerfd, EV_READ | EV_PERSIST, timer_cb, &ctx);
+	event_add(&ev_timer, NULL);
+
 	/* Send a register msg to the kernel */
-	if (send_register_msg(sock)==0)
+	if (send_register_msg(ctx.sock)==0)
 		printf("REGISTER SENT!\n");
 
 	/* enter libevent main loop */
 	event_dispatch();
 
 	/* Free all memory */
-	free(sock);
+	free(ctx.sock);
 	free(msg);
 	free(cb);
 	free(cache);
