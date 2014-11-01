@@ -272,7 +272,7 @@ out:
  *	Send a cloned frame to the kernel space.
  */
 int send_cloned_frame_msg(struct nl_sock *sock, u8 *dst,
-			  char *data, int data_len, int rate_idx, int signal)
+			  u8 *data, int data_len, int rate_idx, int signal)
 {
 
 	msg = nlmsg_alloc();
@@ -330,8 +330,8 @@ void deliver_frame(struct wmediumd *ctx, struct frame *frame)
 		}
 	}
 
-	send_tx_info_frame_nl(ctx->sock, frame->sender, frame->flags, signal,
-			      frame->tx_rates, frame->cookie);
+	send_tx_info_frame_nl(ctx->sock, frame->sender->addr, frame->flags,
+			      signal, frame->tx_rates, frame->cookie);
 
 	free(frame);
 }
