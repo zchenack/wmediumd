@@ -53,6 +53,9 @@ static int sent = 0;
 static int dropped = 0;
 static int acked = 0;
 
+#define TIME_FMT "%lld.%06lld"
+#define TIME_ARGS(a) ((unsigned long long)(a)->tv_sec), ((unsigned long long)(a)->tv_nsec/1000)
+
 #define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
 #define MAC_ARGS(a) a[0],a[1],a[2],a[3],a[4],a[5]
 
@@ -180,7 +183,7 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 {
 	struct ieee80211_hdr *hdr = (void *) frame->data;
 	u8 *dest = hdr->addr1;
-	struct timespec now;
+	struct timespec now, target;
 	struct wqueue *queue;
 	int send_time;
 	int cw;
@@ -198,7 +201,7 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	int retries = 0;
 
 	/* TODO lookup from somewhere */
-	double snr = 20;
+	double snr = 15;
 
 	clock_gettime(CLOCK_MONOTONIC, &now);
 
@@ -218,6 +221,7 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	cw = queue->cw_min;
 
 	noack = frame_is_mgmt(frame) || is_multicast_ether_addr(dest);
+	double choice = -3.14;
 
 	for (i=0; i < IEEE80211_TX_MAX_RATES && !is_acked; i++) {
 
@@ -240,6 +244,8 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 				break;
 			}
 
+			/* TODO TXOPs */
+
 			/* backoff */
 			if (j > 0) {
 				send_time += (cw * slot_time) / 2;
@@ -247,14 +253,14 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 				if (cw > queue->cw_max)
 					cw = queue->cw_max;
 			}
-			if (drand48() > error_prob) {
+			choice = drand48();
+			if (choice > error_prob) {
 				is_acked = true;
 				break;
 			}
 			send_time += ack_time_usec;
 		}
 	}
-	printf("len: %d retries: %d ack: %d, send_time usec %d\n", frame->data_len, retries, is_acked, send_time);
 
 	if (is_acked) {
 		frame->tx_rates[i].count = j + 1;
@@ -265,8 +271,12 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 		frame->flags |= HWSIM_TX_STAT_ACK;
 	}
 
-	timespec_add_usec(&now, send_time);
-	frame->expires = now;
+	target = now;
+	timespec_add_usec(&target, send_time);
+
+	printf("[" TIME_FMT "] queued for " TIME_FMT " len: %d retries: %d ack: %d rate: %d (%d) send_time usec %d %f %f\n", TIME_ARGS(&now), TIME_ARGS(&target), frame->data_len, retries, is_acked, index_to_rate[rate_idx], rate_idx, send_time, error_prob, choice);
+
+	frame->expires = target;
 	rearm_timer(ctx);
 }
 
@@ -332,8 +342,8 @@ void deliver_expired_frames(struct wmediumd *ctx)
 		list_for_each(l, &station->data_queue.frames) {
 			data_count++;
 		}
-		printf("Station " MAC_FMT " mgmt %d data %d\n",
-		       MAC_ARGS(station->addr), mgmt_count, data_count);
+		printf("[" TIME_FMT "] Station " MAC_FMT " mgmt %d data %d\n",
+		       TIME_ARGS(&now), MAC_ARGS(station->addr), mgmt_count, data_count);
 
 		deliver_expired_frames_queue(ctx, &station->mgmt_queue.frames, &now);
 		deliver_expired_frames_queue(ctx, &station->data_queue.frames, &now);
