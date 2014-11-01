@@ -118,7 +118,7 @@ int load_config(const char *file)
 		config_error_text(cf));
 		config_destroy(cf);
 		exit(EXIT_FAILURE);
-    	}
+	}
 
 	/*let's parse the values*/
 	config_lookup_int(cf, "ifaces.count", &count_value);
