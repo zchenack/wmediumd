@@ -96,13 +96,8 @@ int write_buffer_to_file(char *file, char *buffer)
 }
 
 /*
- *	Writes a sample configuration with matrix filled with a value to a file
- */
-
-/*
  *	Loads a config file into memory
  */
-
 int load_config(const char *file)
 {
 
