@@ -28,8 +28,6 @@
 #include "probability.h"
 #include "wmediumd.h"
 
-extern int size;
-
 static void string_to_mac_address(const char* str, u8 *addr)
 {
 	int a[ETH_ALEN];
@@ -98,13 +96,14 @@ int write_buffer_to_file(char *file, char *buffer)
 /*
  *	Loads a config file into memory
  */
-int load_config(const char *file)
+int load_config(struct wmediumd *ctx, const char *file)
 {
 
 	config_t cfg, *cf;
 	const config_setting_t *ids;
 	int count_ids, i;
 	int count_value;
+	struct station *station;
 
 	/*initialize the config file*/
 	cf = &cfg;
@@ -131,20 +130,28 @@ int load_config(const char *file)
 		exit(EXIT_FAILURE);
 	}
 
-	size = count_ids;
 	printf("#_if = %d\n",count_ids);
 	/*Initialize the probability*/
 	init_probability(count_ids);
 
-	/*Fill the mac_addr*/
+	/* Fill the mac_addr */
 	for (i = 0; i < count_ids; i++) {
 		u8 addr[ETH_ALEN];
 		const char *str =  config_setting_get_string_elem(ids, i);
-		string_to_mac_address(str,addr);
-		put_mac_address(addr,i);
+		string_to_mac_address(str, addr);
+
+		station = malloc(sizeof(*station));
+		if (!station) {
+			fprintf(stderr, "Out of memory!");
+			exit(1);
+		}
+		memcpy(station->addr, addr, ETH_ALEN);
+		wqueue_init(&station->data_queue, 15, 1023);
+		wqueue_init(&station->mgmt_queue, 3, 7);
+		list_add_tail(&station->list, &ctx->stations);
+
+		printf("Added station %d: " MAC_FMT "\n", i, MAC_ARGS(addr));
 	}
-	/*Print the mac_addr array*/
-	print_mac_address_array();
 
 	config_destroy(cf);
 	return (EXIT_SUCCESS);

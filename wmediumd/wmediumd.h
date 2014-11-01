@@ -55,9 +55,23 @@ typedef uint64_t u64;
 #define ETH_ALEN 6
 #endif
 
+#define TIME_FMT "%lld.%06lld"
+#define TIME_ARGS(a) ((unsigned long long)(a)->tv_sec), ((unsigned long long)(a)->tv_nsec/1000)
+
+#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
+#define MAC_ARGS(a) a[0],a[1],a[2],a[3],a[4],a[5]
+
 #ifndef min
 #define min(x,y) ((x) < (y) ? (x) : (y))
 #endif
+
+struct wmediumd
+{
+	int timerfd;
+
+	struct nl_sock *sock;
+	struct list_head stations;
+};
 
 struct hwsim_tx_rate {
         signed char idx;
@@ -92,5 +106,7 @@ struct frame
 	size_t data_len;
 	u8 data[0];			/* frame contents */
 };
+
+void wqueue_init(struct wqueue *wqueue, int cw_min, int cw_max);
 
 #endif /* WMEDIUMD_H_ */

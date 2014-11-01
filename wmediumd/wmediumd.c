@@ -42,29 +42,14 @@ struct nl_cache *cache;
 struct genl_family *family;
 
 int running = 0;
-int size;
 
 static int received = 0;
 static int sent = 0;
 static int dropped = 0;
 static int acked = 0;
 
-#define TIME_FMT "%lld.%06lld"
-#define TIME_ARGS(a) ((unsigned long long)(a)->tv_sec), ((unsigned long long)(a)->tv_nsec/1000)
-
-#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
-#define MAC_ARGS(a) a[0],a[1],a[2],a[3],a[4],a[5]
-
 static int index_to_rate[] = {
 	60, 90, 120, 180, 240, 360, 480, 540
-};
-
-struct wmediumd
-{
-	int timerfd;
-
-	struct nl_sock *sock;
-	struct list_head stations;
 };
 
 static inline int div_round(int a, int b)
@@ -585,6 +570,7 @@ int main(int argc, char* argv[])
 	struct event ev_timer;
 	struct wmediumd ctx;
 	struct station *station;
+	char *config_file;
 
 	/* Set stdout buffering to line mode */
 	setvbuf (stdout, NULL, _IOLBF, BUFSIZ);
@@ -607,7 +593,7 @@ int main(int argc, char* argv[])
 			break;
 		case 'c':
 			printf("Input configuration file: %s\n", optarg);
-			load_config(optarg);
+			config_file = optarg;
 			break;
 		case ':':
 			printf("wmediumd: Error - Option `%c' "
@@ -626,22 +612,12 @@ int main(int argc, char* argv[])
 	if (optind < argc)
 		print_help(EXIT_FAILURE);
 
+	INIT_LIST_HEAD(&ctx.stations);
+	load_config(&ctx, config_file);
+
 	/* Handle kill signals */
 	running = 1;
 	signal(SIGUSR1, kill_handler);
-
-	INIT_LIST_HEAD(&ctx.stations);
-	for (i=0; i < size; i++) {
-		station = malloc(sizeof(*station));
-		if (!station) {
-			fprintf(stderr, "Out of memory!");
-			exit(1);
-		}
-		memcpy(station->addr, get_mac_address(i), ETH_ALEN);
-		wqueue_init(&station->data_queue, 15, 1023);
-		wqueue_init(&station->mgmt_queue, 3, 7);
-		list_add_tail(&station->list, &ctx.stations);
-	}
 
 	/* init libevent */
 	event_init();

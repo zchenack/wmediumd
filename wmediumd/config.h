@@ -24,6 +24,6 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
-int load_config(const char *file);
+int load_config(struct wmediumd *ctx, const char *file);
 
 #endif /* CONFIG_H_ */
