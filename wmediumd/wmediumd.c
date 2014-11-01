@@ -590,13 +590,12 @@ void init_netlink(struct wmediumd *ctx)
 void print_help(int exval)
 {
 	printf("wmediumd v%s - a wireless medium simulator\n", VERSION_STR);
-	printf("wmediumd [-h] [-V] [-c FILE] [-o FILE]\n\n");
+	printf("wmediumd [-h] [-V] [-c FILE]\n\n");
 
 	printf("  -h              print this help and exit\n");
 	printf("  -V              print version and exit\n\n");
 
 	printf("  -c FILE         set intput config file\n");
-	printf("  -o FILE         set output config file\n\n");
 
 	exit(exval);
 }
@@ -628,7 +627,7 @@ int main(int argc, char* argv[])
 		print_help(EXIT_FAILURE);
 	}
 
-	while((opt = getopt(argc, argv, "hVc:o:")) != -1) {
+	while((opt = getopt(argc, argv, "hVc:")) != -1) {
 		switch(opt) {
 		case 'h':
 			print_help(EXIT_SUCCESS);
@@ -641,16 +640,6 @@ int main(int argc, char* argv[])
 		case 'c':
 			printf("Input configuration file: %s\n", optarg);
 			load_config(optarg);
-			break;
-		case 'o':
-			printf("Output configuration file: %s\n", optarg);
-			printf("How many interfaces are active?\n");
-			scanf("%d",&ifaces);
-			if (ifaces < 2) {
-				printf("active interfaces must be at least 2\n");
-				exit(EXIT_FAILURE);
-			}
-				write_config(optarg, ifaces, 0.0);
 			break;
 		case ':':
 			printf("wmediumd: Error - Option `%c' "

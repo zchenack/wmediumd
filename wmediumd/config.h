@@ -25,6 +25,5 @@
 #define CONFIG_H_
 
 int load_config(const char *file);
-int write_config(char *file, int ifaces, float value);
 
 #endif /* CONFIG_H_ */
