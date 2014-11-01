@@ -44,6 +44,9 @@
 #define VERSION_NR 1
 
 #include <stdint.h>
+#include <stdbool.h>
+#include "list.h"
+#include "ieee80211.h"
 
 typedef uint8_t u8;
 typedef uint64_t u64;
@@ -59,6 +62,35 @@ typedef uint64_t u64;
 struct hwsim_tx_rate {
         signed char idx;
         unsigned char count;
+};
+
+struct wqueue
+{
+	struct list_head frames;
+	int cw_min;
+	int cw_max;
+};
+
+struct station
+{
+	char addr[ETH_ALEN];
+	struct wqueue data_queue;
+	struct wqueue mgmt_queue;
+	struct list_head list;
+};
+
+struct frame
+{
+	struct list_head list;		/* frame queue list */
+	struct timespec expires;	/* frame delivery (absolute) */
+	bool acked;
+	u64 cookie;
+	int flags;
+	int tx_rates_count;
+	struct station *sender;
+	struct hwsim_tx_rate tx_rates[IEEE80211_TX_MAX_RATES];
+	size_t data_len;
+	u8 data[0];			/* frame contents */
 };
 
 #endif /* WMEDIUMD_H_ */

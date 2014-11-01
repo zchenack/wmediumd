@@ -29,15 +29,12 @@
 #include <getopt.h>
 #include <signal.h>
 #include <event.h>
-#include <stdbool.h>
 #include <sys/timerfd.h>
 
 #include "wmediumd.h"
 #include "probability.h"
-#include "mac_address.h"
 #include "ieee80211.h"
 #include "config.h"
-#include "list.h"
 
 struct nl_msg *msg;
 struct nl_cb *cb;
@@ -68,35 +65,6 @@ struct wmediumd
 
 	struct nl_sock *sock;
 	struct list_head stations;
-};
-
-struct wqueue
-{
-	struct list_head frames;
-	int cw_min;
-	int cw_max;
-};
-
-struct station
-{
-	char addr[ETH_ALEN];
-	struct wqueue data_queue;
-	struct wqueue mgmt_queue;
-	struct list_head list;
-};
-
-struct frame
-{
-	struct list_head list;		/* frame queue list */
-	struct timespec expires;	/* frame delivery (absolute) */
-	bool acked;
-	u64 cookie;
-	int flags;
-	int tx_rates_count;
-	struct station *sender;
-	struct hwsim_tx_rate tx_rates[IEEE80211_TX_MAX_RATES];
-	size_t data_len;
-	u8 data[0];			/* frame contents */
 };
 
 static inline int div_round(int a, int b)
