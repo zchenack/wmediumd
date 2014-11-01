@@ -108,5 +108,6 @@ struct frame
 };
 
 void wqueue_init(struct wqueue *wqueue, int cw_min, int cw_max);
+double get_error_prob(double snr, unsigned int rate_idx, int frame_len);
 
 #endif /* WMEDIUMD_H_ */
