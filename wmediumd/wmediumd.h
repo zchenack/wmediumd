@@ -87,7 +87,7 @@ struct wqueue
 
 struct station
 {
-	char addr[ETH_ALEN];
+	u8 addr[ETH_ALEN];
 	struct wqueue data_queue;
 	struct wqueue mgmt_queue;
 	struct list_head list;
