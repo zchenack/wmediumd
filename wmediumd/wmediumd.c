@@ -32,7 +32,6 @@
 #include <sys/timerfd.h>
 
 #include "wmediumd.h"
-#include "probability.h"
 #include "ieee80211.h"
 #include "config.h"
 

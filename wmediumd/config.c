@@ -25,7 +25,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "probability.h"
 #include "wmediumd.h"
 
 static void string_to_mac_address(const char* str, u8 *addr)
@@ -131,8 +130,6 @@ int load_config(struct wmediumd *ctx, const char *file)
 	}
 
 	printf("#_if = %d\n",count_ids);
-	/*Initialize the probability*/
-	init_probability(count_ids);
 
 	/* Fill the mac_addr */
 	for (i = 0; i < count_ids; i++) {
