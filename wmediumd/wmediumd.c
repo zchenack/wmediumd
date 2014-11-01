@@ -56,6 +56,10 @@ static int acked = 0;
 #define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
 #define MAC_ARGS(a) a[0],a[1],a[2],a[3],a[4],a[5]
 
+static int index_to_rate[] = {
+	60, 90, 120, 180, 240, 360, 480, 540
+};
+
 struct wmediumd
 {
 	int timerfd;
@@ -64,11 +68,18 @@ struct wmediumd
 	struct list_head stations;
 };
 
+struct wqueue
+{
+	struct list_head frames;
+	int cw_min;
+	int cw_max;
+};
+
 struct station
 {
 	char addr[ETH_ALEN];
-	struct list_head data_queue;
-	struct list_head mgmt_queue;
+	struct wqueue data_queue;
+	struct wqueue mgmt_queue;
 	struct list_head list;
 };
 
@@ -86,11 +97,37 @@ struct frame
 	u8 data[0];			/* frame contents */
 };
 
+static inline int div_round(int a, int b)
+{
+	return (a + b-1) / b;
+}
+
+static inline int pkt_duration(int len, int rate)
+{
+	/* preamble + signal + t_sym * n_sym, rate in 100 kbps */
+	return 16 + 4 + 4 * div_round((16 + 8 * len + 6) * 10, 4 * rate);
+}
+
+void wqueue_init(struct wqueue *wqueue, int cw_min, int cw_max)
+{
+	INIT_LIST_HEAD(&wqueue->frames);
+	wqueue->cw_min = cw_min;
+	wqueue->cw_max = cw_max;
+}
 
 bool timespec_before(struct timespec *t1, struct timespec *t2)
 {
 	return t1->tv_sec < t2->tv_sec ||
 	       (t1->tv_sec == t2->tv_sec && t1->tv_nsec < t2->tv_nsec);
+}
+
+void timespec_add_usec(struct timespec *t, int usec)
+{
+	t->tv_nsec += usec * 1000;
+	if (t->tv_nsec >= 1000000000) {
+		t->tv_sec++;
+		t->tv_nsec -= 1000000000;
+	}
 }
 
 void rearm_timer(struct wmediumd *ctx)
@@ -100,20 +137,28 @@ void rearm_timer(struct wmediumd *ctx)
 	struct station *station;
 	struct frame *frame;
 
+	bool set_min_expires = false;
+
 	/*
 	 * Iterate over all the interfaces to find the next frame that
 	 * will be delivered, and set the timerfd accordingly.
 	 */
 	list_for_each_entry(station, &ctx->stations, list) {
-		frame = list_first_entry(&station->mgmt_queue,
+		frame = list_first_entry(&station->mgmt_queue.frames,
 					 struct frame, list);
-		if (frame && timespec_before(&frame->expires, &min_expires))
-			min_expires = frame->expires;
 
-		frame = list_first_entry(&station->data_queue,
-					 struct frame, list);
-		if (frame && timespec_before(&frame->expires, &min_expires))
+		if (frame && (!set_min_expires || timespec_before(&frame->expires, &min_expires))) {
+			set_min_expires = true;
 			min_expires = frame->expires;
+		}
+
+		frame = list_first_entry(&station->data_queue.frames,
+					 struct frame, list);
+
+		if (frame && (!set_min_expires || timespec_before(&frame->expires, &min_expires))) {
+			set_min_expires = true;
+			min_expires = frame->expires;
+		}
 	}
 	expires.it_value = min_expires;
 	timerfd_settime(ctx->timerfd, TFD_TIMER_ABSTIME, &expires, NULL);
@@ -125,11 +170,39 @@ bool frame_is_mgmt(struct frame *frame)
 	return (hdr->frame_control[0] & 0x0c) == 0;
 }
 
+bool is_multicast_ether_addr(const u8 *addr)
+{
+	return 0x01 & addr[0];
+}
+
 void queue_frame(struct wmediumd *ctx, struct station *station,
 		 struct frame *frame)
 {
+	struct ieee80211_hdr *hdr = (void *) frame->data;
+	u8 *dest = hdr->addr1;
 	struct timespec now;
-	struct list_head *queue;
+	struct wqueue *queue;
+	int send_time;
+	int cw;
+	double error_prob;
+	bool is_acked = false;
+	bool noack = false;
+	int i, j;
+	int rate_idx;
+
+	/* TODO configure phy parameters */
+	int slot_time = 9;
+	int sifs = 16;
+	int difs = 2 * slot_time + sifs;
+
+	int retries = 0;
+
+	/* TODO lookup from somewhere */
+	double snr = 20;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+
+	int ack_time_usec = pkt_duration(14, index_to_rate[0]) + sifs;
 
 	/*
 	 * To determine a frame's expiration time, we compute the
@@ -138,31 +211,63 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	 * add the expiration time of the previous frame in the queue.
 	 */
 	queue = frame_is_mgmt(frame) ? &station->mgmt_queue : &station->data_queue;
-	list_add_tail(&frame->list, queue);
+	list_add_tail(&frame->list, &queue->frames);
 
-	/* TODO set expires properly */
-	/* TODO compute frame attempts / ack status using per_model */
-	/*
-	 *
-	 * rand = drand48();
-	 * for each rate_idx, ct in rateset:
-	 *    for each attempt:
-	 *      is_ack = rand < get_error_prob(snr, rate_idx, data_len);
-	 *      time += airtime + backoff
-	 *      if is_ack break
-	 */
-	frame->tx_rates[0].count = 1;
-	frame->tx_rates[1].count = -1;
-	frame->flags |= HWSIM_TX_STAT_ACK;
+	/* try to "send" this frame at each of the rates in the rateset */
+	send_time = 0;
+	cw = queue->cw_min;
 
-	clock_gettime(CLOCK_MONOTONIC, &now);
+	noack = frame_is_mgmt(frame) || is_multicast_ether_addr(dest);
+
+	for (i=0; i < IEEE80211_TX_MAX_RATES && !is_acked; i++) {
+
+		rate_idx = frame->tx_rates[i].idx;
+
+		/* no more rates in MRR */
+		if (rate_idx < 0)
+			break;
+
+		error_prob = get_error_prob(snr, rate_idx, frame->data_len);
+		for (j=0; j < frame->tx_rates[i].count; j++) {
+			int rate = index_to_rate[rate_idx];
+			send_time += difs + pkt_duration(frame->data_len, rate);
+
+			retries++;
+
+			/* skip ack/backoff/retries for noack frames */
+			if (noack) {
+				is_acked = true;
+				break;
+			}
+
+			/* backoff */
+			if (j > 0) {
+				send_time += (cw * slot_time) / 2;
+				cw = (cw << 1) + 1;
+				if (cw > queue->cw_max)
+					cw = queue->cw_max;
+			}
+			if (drand48() > error_prob) {
+				is_acked = true;
+				break;
+			}
+			send_time += ack_time_usec;
+		}
+	}
+	printf("len: %d retries: %d ack: %d, send_time usec %d\n", frame->data_len, retries, is_acked, send_time);
+
+	if (is_acked) {
+		frame->tx_rates[i].count = j + 1;
+		for (++i; i < IEEE80211_TX_MAX_RATES; i++) {
+			frame->tx_rates[i].idx = -1;
+			frame->tx_rates[i].count = -1;
+		}
+		frame->flags |= HWSIM_TX_STAT_ACK;
+	}
+
+	timespec_add_usec(&now, send_time);
 	frame->expires = now;
 	rearm_timer(ctx);
-}
-
-bool is_multicast_ether_addr(const u8 *addr)
-{
-	return 0x01 & addr[0];
 }
 
 void deliver_frame(struct wmediumd *ctx, struct frame *frame)
@@ -216,12 +321,24 @@ void deliver_expired_frames(struct wmediumd *ctx)
 {
 	struct timespec now;
 	struct station *station;
+	struct list_head *l;
 
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	list_for_each_entry(station, &ctx->stations, list) {
-		deliver_expired_frames_queue(ctx, &station->mgmt_queue, &now);
-		deliver_expired_frames_queue(ctx, &station->data_queue, &now);
+		int data_count=0, mgmt_count = 0;
+		list_for_each(l, &station->mgmt_queue.frames) {
+			mgmt_count++;
+		}
+		list_for_each(l, &station->data_queue.frames) {
+			data_count++;
+		}
+		printf("Station " MAC_FMT " mgmt %d data %d\n",
+		       MAC_ARGS(station->addr), mgmt_count, data_count);
+
+		deliver_expired_frames_queue(ctx, &station->mgmt_queue.frames, &now);
+		deliver_expired_frames_queue(ctx, &station->data_queue.frames, &now);
 	}
+	printf("\n\n");
 }
 
 /*
@@ -293,6 +410,7 @@ int send_cloned_frame_msg(struct nl_sock *sock, u8 *dst,
 		printf("Error filling payload\n");
 		goto out;
 	}
+	printf("cloned msg dest " MAC_FMT " len %d \n", MAC_ARGS(dst), data_len);
 
 	nl_send_auto_complete(sock,msg);
 	nlmsg_free(msg);
@@ -361,8 +479,10 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 			received++;
 
 			sender = get_station_by_addr(ctx, src);
-			if (!sender)
+			if (!sender) {
+				fprintf(stderr, "Unable to find sender station\n");
 				goto out;
+			}
 
 			frame = malloc(sizeof(*frame) + data_len);
 			if (!frame)
@@ -552,8 +672,8 @@ int main(int argc, char* argv[])
 			exit(1);
 		}
 		memcpy(station->addr, get_mac_address(i), ETH_ALEN);
-		INIT_LIST_HEAD(&station->data_queue);
-		INIT_LIST_HEAD(&station->mgmt_queue);
+		wqueue_init(&station->data_queue, 15, 1023);
+		wqueue_init(&station->mgmt_queue, 3, 7);
 		list_add_tail(&station->list, &ctx.stations);
 	}
 
