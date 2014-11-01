@@ -32,16 +32,16 @@ extern int size;
 
 static void string_to_mac_address(const char* str, u8 *addr)
 {
-	u8 a[ETH_ALEN];
+	int a[ETH_ALEN];
 	sscanf(str, "%x:%x:%x:%x:%x:%x",
 	       &a[0], &a[1], &a[2], &a[3], &a[4], &a[5]);
 
-	addr[0] = a[0];
-	addr[1] = a[1];
-	addr[2] = a[2];
-	addr[3] = a[3];
-	addr[4] = a[4];
-	addr[5] = a[5];
+	addr[0] = (u8) a[0];
+	addr[1] = (u8) a[1];
+	addr[2] = (u8) a[2];
+	addr[3] = (u8) a[3];
+	addr[4] = (u8) a[4];
+	addr[5] = (u8) a[5];
 }
 
 /*
