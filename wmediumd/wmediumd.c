@@ -42,11 +42,6 @@ struct genl_family *family;
 
 int running = 0;
 
-static int received = 0;
-static int sent = 0;
-static int dropped = 0;
-static int acked = 0;
-
 static int index_to_rate[] = {
 	60, 90, 120, 180, 240, 360, 480, 540
 };
@@ -436,8 +431,6 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 				(struct hwsim_tx_rate*)
 				nla_data(attrs[HWSIM_ATTR_TX_INFO]);
 			u64 cookie = nla_get_u64(attrs[HWSIM_ATTR_COOKIE]);
-
-			received++;
 
 			sender = get_station_by_addr(ctx, src);
 			if (!sender) {
