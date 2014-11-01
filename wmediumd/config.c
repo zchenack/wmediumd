@@ -28,7 +28,6 @@
 #include "probability.h"
 #include "wmediumd.h"
 
-extern struct jammer_cfg jam_cfg;
 extern int size;
 
 /*
@@ -176,7 +175,7 @@ int load_config(const char *file)
 {
 
 	config_t cfg, *cf;
-	const config_setting_t *ids, *jammer_s;
+	const config_setting_t *ids;
 	int count_ids, i;
 	int count_value;
 
@@ -193,29 +192,6 @@ int load_config(const char *file)
 		config_destroy(cf);
 		exit(EXIT_FAILURE);
     	}
-
-	/* get jammer settings */
-	if ((jammer_s = config_lookup(cf, "jam"))) {
-		switch (config_setting_type(jammer_s)) {
-		case CONFIG_TYPE_STRING:
-			if (!strcmp(config_setting_get_string(jammer_s), "all")) {
-				jam_cfg.jam_all = 1;
-			}
-			break;
-		case CONFIG_TYPE_ARRAY:
-			jam_cfg.nmacs = config_setting_length(jammer_s);
-			jam_cfg.macs = malloc(ETH_ALEN * jam_cfg.nmacs);
-			if (!jam_cfg.macs) {
-				printf("couldn't allocate jamming mac table!\n");
-				exit(EXIT_FAILURE);
-			}
-			for (i = 0; i < jam_cfg.nmacs; i++) {
-				string_to_mac_address(config_setting_get_string_elem(jammer_s, i),
-                                      &jam_cfg.macs[i * ETH_ALEN]);
-			}
-			break;
-		}
-	}
 
 	/*let's parse the values*/
 	config_lookup_int(cf, "ifaces.count", &count_value);

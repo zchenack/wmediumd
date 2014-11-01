@@ -45,7 +45,6 @@ struct nl_cache *cache;
 struct genl_family *family;
 
 int running = 0;
-struct jammer_cfg jam_cfg;
 int size;
 
 static int received = 0;
