@@ -176,9 +176,9 @@ int load_config(const char *file)
 {
 
 	config_t cfg, *cf;
-	const config_setting_t *ids, *prob_list, *mat_array, *jammer_s;
-	int count_ids, rates_prob, i, j;
-	int count_value, rates_value;
+	const config_setting_t *ids, *jammer_s;
+	int count_ids, i;
+	int count_value;
 
 	/*initialize the config file*/
 	cf = &cfg;
@@ -242,19 +242,6 @@ int load_config(const char *file)
 	}
 	/*Print the mac_addr array*/
 	print_mac_address_array();
-
-	config_lookup_int(cf, "prob.rates", &rates_value);
-	prob_list = config_lookup(cf,"prob.matrix_list");
-
-	/*Get rates*/
-	rates_prob = config_setting_length(prob_list);
-
-	/*Some checks*/
-	if(!config_setting_is_list(prob_list)
-	   && rates_prob != rates_value) {
-		printf("Error on prob_list");
-		exit(EXIT_FAILURE);
-	}
 
 	config_destroy(cf);
 	return (EXIT_SUCCESS);

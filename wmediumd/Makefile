@@ -7,7 +7,7 @@ NL3FOUND := $(shell $(PKG_CONFIG) --atleast-version=3 libnl-3.0 && echo Y)
 NL31FOUND := $(shell $(PKG_CONFIG) --exact-version=3.1 libnl-3.1 && echo Y)
 NL3xFOUND := $(shell $(PKG_CONFIG) --atleast-version=3.2 libnl-3.0 && echo Y)
 
-CFLAGS = -g -O3 -Wall
+CFLAGS = -g -Wall
 LDFLAGS = -levent -lm
 
 ifeq ($(NL2FOUND),Y)
