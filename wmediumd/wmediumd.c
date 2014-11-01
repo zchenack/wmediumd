@@ -77,7 +77,7 @@ struct frame
 	struct list_head list;		/* frame queue list */
 	struct timespec expires;	/* frame delivery (absolute) */
 	bool acked;
-	long cookie;
+	u64 cookie;
 	int flags;
 	int tx_rates_count;
 	struct station *sender;
@@ -231,7 +231,7 @@ int send_tx_info_frame_nl(struct nl_sock *sock,
 			  u8 *src,
 			  unsigned int flags, int signal,
 			  struct hwsim_tx_rate *tx_attempts,
-			  unsigned long cookie)
+			  u64 cookie)
 {
 
 	msg = nlmsg_alloc();
@@ -356,7 +356,7 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 			struct hwsim_tx_rate *tx_rates =
 				(struct hwsim_tx_rate*)
 				nla_data(attrs[HWSIM_ATTR_TX_INFO]);
-			unsigned long cookie = nla_get_u64(attrs[HWSIM_ATTR_COOKIE]);
+			u64 cookie = nla_get_u64(attrs[HWSIM_ATTR_COOKIE]);
 
 			received++;
 
