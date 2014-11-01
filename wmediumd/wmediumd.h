@@ -61,9 +61,4 @@ struct hwsim_tx_rate {
         unsigned char count;
 };
 
-struct jammer_cfg {
-	int jam_all;
-	u8 *macs;
-	int nmacs;
-};
 #endif /* WMEDIUMD_H_ */
