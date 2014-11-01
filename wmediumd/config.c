@@ -42,57 +42,6 @@ static void string_to_mac_address(const char* str, u8 *addr)
 }
 
 /*
- *	Funtion to replace all ocurrences of a "old" string for a "new" string
- *	inside a "str" string
- */
-
-char *str_replace(const char *str, const char *old, const char *new)
-{
-	char *ret, *r;
-	const char *p, *q;
-	size_t len_str = strlen(str);
-	size_t len_old = strlen(old);
-	size_t len_new = strlen(new);
-	size_t count;
-
-	for(count = 0, p = str; (p = strstr(p, old)); p += len_old)
-		count++;
-
-	ret = malloc(count * (len_new - len_old) + len_str + 1);
-	if(!ret)
-		return NULL;
-
-	for(r = ret, p = str; (q = strstr(p, old)); p = q + len_old) {
-		count = q - p;
-		memcpy(r, p, count);
-		r += count;
-		strcpy(r, new);
-		r += len_new;
-	}
-	strcpy(r, p);
-	return ret;
-}
-
-/*
- *	Writes a char* buffer to a destination file
- */
-
-int write_buffer_to_file(char *file, char *buffer)
-{
-	FILE *p = NULL;
-
-	p = fopen(file, "w");
-	if (p== NULL) {
-		return 1;
-	}
-
-	fwrite(buffer, strlen(buffer), 1, p);
-	fclose(p);
-
-	return 0;
-}
-
-/*
  *	Loads a config file into memory
  */
 int load_config(struct wmediumd *ctx, const char *file)
