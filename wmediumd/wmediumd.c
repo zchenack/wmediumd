@@ -455,10 +455,6 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 	}
 out:
 	return 0;
-
-out_free_frame:
-	free(frame);
-	return 0;
 }
 
 /*
