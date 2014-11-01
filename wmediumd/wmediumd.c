@@ -226,77 +226,6 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	rearm_timer(ctx);
 }
 
-void deliver_frame(struct wmediumd *ctx, struct frame *frame)
-{
-	struct ieee80211_hdr *hdr = (void *) frame->data;
-	struct station *station;
-	u8 *dest = hdr->addr1;
-	u8 *src = frame->sender->addr;
-
-	int signal = 35;
-
-	if (frame->flags & HWSIM_TX_STAT_ACK) {
-		/* rx the frame on the dest interface */
-		list_for_each_entry(station, &ctx->stations, list) {
-			if (memcmp(src, station->addr, ETH_ALEN) == 0)
-				continue;
-
-			if (is_multicast_ether_addr(dest) ||
-			    memcmp(dest, station->addr, ETH_ALEN) == 0) {
-				send_cloned_frame_msg(ctx->sock, station->addr,
-						      frame->data,
-						      frame->data_len,
-						      1, signal);
-			}
-		}
-	}
-
-	send_tx_info_frame_nl(ctx->sock, frame->sender, frame->flags, signal,
-			      frame->tx_rates, frame->cookie);
-
-	free(frame);
-}
-
-void deliver_expired_frames_queue(struct wmediumd *ctx,
-				  struct list_head *queue,
-				  struct timespec *now)
-{
-	struct frame *frame, *tmp;
-
-	list_for_each_entry_safe(frame, tmp, queue, list) {
-		if (timespec_before(&frame->expires, now)) {
-			list_del(&frame->list);
-			deliver_frame(ctx, frame);
-		} else {
-			break;
-		}
-	}
-}
-
-void deliver_expired_frames(struct wmediumd *ctx)
-{
-	struct timespec now;
-	struct station *station;
-	struct list_head *l;
-
-	clock_gettime(CLOCK_MONOTONIC, &now);
-	list_for_each_entry(station, &ctx->stations, list) {
-		int data_count=0, mgmt_count = 0;
-		list_for_each(l, &station->mgmt_queue.frames) {
-			mgmt_count++;
-		}
-		list_for_each(l, &station->data_queue.frames) {
-			data_count++;
-		}
-		printf("[" TIME_FMT "] Station " MAC_FMT " mgmt %d data %d\n",
-		       TIME_ARGS(&now), MAC_ARGS(station->addr), mgmt_count, data_count);
-
-		deliver_expired_frames_queue(ctx, &station->mgmt_queue.frames, &now);
-		deliver_expired_frames_queue(ctx, &station->data_queue.frames, &now);
-	}
-	printf("\n\n");
-}
-
 /*
  *	Send a tx_info frame to the kernel space.
  */
@@ -374,6 +303,77 @@ int send_cloned_frame_msg(struct nl_sock *sock, u8 *dst,
 out:
 	nlmsg_free(msg);
 	return -1;
+}
+
+void deliver_frame(struct wmediumd *ctx, struct frame *frame)
+{
+	struct ieee80211_hdr *hdr = (void *) frame->data;
+	struct station *station;
+	u8 *dest = hdr->addr1;
+	u8 *src = frame->sender->addr;
+
+	int signal = 35;
+
+	if (frame->flags & HWSIM_TX_STAT_ACK) {
+		/* rx the frame on the dest interface */
+		list_for_each_entry(station, &ctx->stations, list) {
+			if (memcmp(src, station->addr, ETH_ALEN) == 0)
+				continue;
+
+			if (is_multicast_ether_addr(dest) ||
+			    memcmp(dest, station->addr, ETH_ALEN) == 0) {
+				send_cloned_frame_msg(ctx->sock, station->addr,
+						      frame->data,
+						      frame->data_len,
+						      1, signal);
+			}
+		}
+	}
+
+	send_tx_info_frame_nl(ctx->sock, frame->sender, frame->flags, signal,
+			      frame->tx_rates, frame->cookie);
+
+	free(frame);
+}
+
+void deliver_expired_frames_queue(struct wmediumd *ctx,
+				  struct list_head *queue,
+				  struct timespec *now)
+{
+	struct frame *frame, *tmp;
+
+	list_for_each_entry_safe(frame, tmp, queue, list) {
+		if (timespec_before(&frame->expires, now)) {
+			list_del(&frame->list);
+			deliver_frame(ctx, frame);
+		} else {
+			break;
+		}
+	}
+}
+
+void deliver_expired_frames(struct wmediumd *ctx)
+{
+	struct timespec now;
+	struct station *station;
+	struct list_head *l;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	list_for_each_entry(station, &ctx->stations, list) {
+		int data_count=0, mgmt_count = 0;
+		list_for_each(l, &station->mgmt_queue.frames) {
+			mgmt_count++;
+		}
+		list_for_each(l, &station->data_queue.frames) {
+			data_count++;
+		}
+		printf("[" TIME_FMT "] Station " MAC_FMT " mgmt %d data %d\n",
+		       TIME_ARGS(&now), MAC_ARGS(station->addr), mgmt_count, data_count);
+
+		deliver_expired_frames_queue(ctx, &station->mgmt_queue.frames, &now);
+		deliver_expired_frames_queue(ctx, &station->data_queue.frames, &now);
+	}
+	printf("\n\n");
 }
 
 static
