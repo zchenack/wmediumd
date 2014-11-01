@@ -25,9 +25,9 @@
 #ifndef PROBABILITY_H_
 #define PROBABILITY_H_
 
-#define MATRIX_PROB(MATRIX,LIMITS,X,Y,Z) (MATRIX)[((X)+(Y)*(LIMITS))+((LIMITS)*(LIMITS)*(Z))]
+#include "wmediumd.h"
 
-#include "mac_address.h"
+#define MATRIX_PROB(MATRIX,LIMITS,X,Y,Z) (MATRIX)[((X)+(Y)*(LIMITS))+((LIMITS)*(LIMITS)*(Z))]
 
 void put_mac_address(u8 *addr, int pos);
 u8 *get_mac_address(int pos);
