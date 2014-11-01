@@ -404,7 +404,6 @@ static struct station *get_station_by_addr(struct wmediumd *ctx, u8 *addr)
 static int process_messages_cb(struct nl_msg *msg, void *arg)
 {
 	struct wmediumd *ctx = arg;
-	struct nl_sock *sock = ctx->sock;
 	struct nlattr *attrs[HWSIM_ATTR_MAX+1];
 	/* netlink header */
 	struct nlmsghdr *nlh = nlmsg_hdr(msg);
@@ -554,14 +553,10 @@ static void timer_cb(int fd, short what, void *data)
 
 int main(int argc, char* argv[])
 {
-	int i;
-	int opt, ifaces;
-	int fd;
-	struct nl_sock *sock;
+	int opt;
 	struct event ev_cmd;
 	struct event ev_timer;
 	struct wmediumd ctx;
-	struct station *station;
 	char *config_file;
 
 	/* Set stdout buffering to line mode */
