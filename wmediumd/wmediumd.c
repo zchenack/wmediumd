@@ -210,8 +210,8 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	}
 
 	if (is_acked) {
-		frame->tx_rates[i].count = j + 1;
-		for (++i; i < IEEE80211_TX_MAX_RATES; i++) {
+		frame->tx_rates[i-1].count = j + 1;
+		for (; i < IEEE80211_TX_MAX_RATES; i++) {
 			frame->tx_rates[i].idx = -1;
 			frame->tx_rates[i].count = -1;
 		}
