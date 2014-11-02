@@ -131,6 +131,7 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	u8 *dest = hdr->addr1;
 	struct timespec now, target;
 	struct wqueue *queue;
+	struct frame *prev;
 	int send_time;
 	int cw;
 	double error_prob;
@@ -217,7 +218,16 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 		frame->flags |= HWSIM_TX_STAT_ACK;
 	}
 
+	/*
+	 * delivery time is now + send_time, or previous frame + send_time,
+	 * whichever is latest.
+	 */
 	target = now;
+	prev = list_prev_entry(frame, list);
+	if (&prev->list != &queue->frames &&
+	    timespec_before(&now, &prev->expires))
+		target = prev->expires;
+
 	timespec_add_usec(&target, send_time);
 
 	printf("[" TIME_FMT "] queued for " TIME_FMT " len: %zd retries: %d ack: %d rate: %d (%d) send_time usec %d %f %f\n", TIME_ARGS(&now), TIME_ARGS(&target), frame->data_len, retries, is_acked, index_to_rate[rate_idx], rate_idx, send_time, error_prob, choice);
