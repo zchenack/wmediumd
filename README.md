@@ -33,6 +33,9 @@ sudo ./wmediumd/wmediumd -c tests/2node.cfg &
 ```
 However, please see the next section on some potential pitfalls.
 
+A complete example using network namespaces is given at the end of
+this document.
+
 ## Gotchas
 
 ### Allowable MAC addresses
@@ -54,7 +57,47 @@ By default, traffic between local devices in Linux will not go over
 the wire / wireless medium.  This is true of vanilla hwsim as well.
 In order to make this happen, you need to either run the hwsim interfaces
 in separate network namespaces, or you need to set up routing rules with
-the hwsim devices at a higher priority than with local forwarding.
+the hwsim devices at a higher priority than local forwarding.
 
 `tests/test-001.sh` contains an example of the latter setup.
 
+# Example session
+
+The following sequence of commands establishes a two-node mesh using network
+namespaces.
+```
+sudo modprobe -r mac80211_hwsim
+sudo modprobe mac80211_hwsim
+sudo ./wmediumd/wmediumd -c ./tests/2node.cfg
+
+# in window 2
+sudo lxc-unshare -s NETWORK bash
+ps | grep bash  # note pid
+
+# in window 1
+sudo iw phy phy2 set netns $pid
+
+sudo ip link set wlan1 down
+sudo iw dev wlan1 set type mp
+sudo ip link set addr 42:00:00:00:00:00 dev wlan1
+sudo ip link set wlan1 up
+sudo ip addr add 10.10.10.1/24 dev wlan1
+sudo iw dev wlan1 set channel 149
+sudo iw dev wlan1 mesh join meshabc
+
+# in window 2
+ip link set lo
+
+sudo ip link set wlan2 down
+sudo iw dev wlan2 set type mp
+sudo ip link set addr 42:00:00:00:01:00 dev wlan2
+sudo ip link set wlan2 up
+sudo ip addr add 10.10.10.2/24 dev wlan2
+sudo iw dev wlan2 set channel 149
+sudo iw dev wlan2 mesh join meshabc
+
+iperf -u -s -i 10 -B 10.10.10.2
+
+# in window 1
+iperf -u -c 10.10.10.2 -b 100M -i 10 -t 120
+```
