@@ -66,8 +66,10 @@ static void wqueue_init(struct wqueue *wqueue, int cw_min, int cw_max)
 
 void station_init_queues(struct station *station)
 {
-	wqueue_init(&station->data_queue, 15, 1023);
-	wqueue_init(&station->mgmt_queue, 3, 7);
+	wqueue_init(&station->queues[IEEE80211_AC_BK], 15, 1023);
+	wqueue_init(&station->queues[IEEE80211_AC_BE], 15, 1023);
+	wqueue_init(&station->queues[IEEE80211_AC_VI], 7, 15);
+	wqueue_init(&station->queues[IEEE80211_AC_VO], 3, 7);
 }
 
 bool timespec_before(struct timespec *t1, struct timespec *t2)
@@ -91,6 +93,7 @@ void rearm_timer(struct wmediumd *ctx)
 	struct itimerspec expires = {};
 	struct station *station;
 	struct frame *frame;
+	int i;
 
 	bool set_min_expires = false;
 
@@ -99,20 +102,16 @@ void rearm_timer(struct wmediumd *ctx)
 	 * will be delivered, and set the timerfd accordingly.
 	 */
 	list_for_each_entry(station, &ctx->stations, list) {
-		frame = list_first_entry(&station->mgmt_queue.frames,
-					 struct frame, list);
+		for (i=0; i < IEEE80211_NUM_ACS; i++) {
+			frame = list_first_entry(&station->queues[i].frames,
+						 struct frame, list);
 
-		if (frame && (!set_min_expires || timespec_before(&frame->expires, &min_expires))) {
-			set_min_expires = true;
-			min_expires = frame->expires;
-		}
-
-		frame = list_first_entry(&station->data_queue.frames,
-					 struct frame, list);
-
-		if (frame && (!set_min_expires || timespec_before(&frame->expires, &min_expires))) {
-			set_min_expires = true;
-			min_expires = frame->expires;
+			if (frame && (!set_min_expires ||
+				      timespec_before(&frame->expires,
+					              &min_expires))) {
+				set_min_expires = true;
+				min_expires = frame->expires;
+			}
 		}
 	}
 	expires.it_value = min_expires;
@@ -166,7 +165,10 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	 * or contention, and add backoff time accordingly.  To that, we
 	 * add the expiration time of the previous frame in the queue.
 	 */
-	queue = frame_is_mgmt(frame) ? &station->mgmt_queue : &station->data_queue;
+
+	/* TODO actually look at QoS header */
+	queue = frame_is_mgmt(frame) ? &station->queues[IEEE80211_AC_VO] :
+				       &station->queues[IEEE80211_AC_BE];
 	list_add_tail(&frame->list, &queue->frames);
 
 	/* try to "send" this frame at each of the rates in the rateset */
@@ -373,21 +375,24 @@ void deliver_expired_frames(struct wmediumd *ctx)
 	struct timespec now;
 	struct station *station;
 	struct list_head *l;
+	int i;
 
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	list_for_each_entry(station, &ctx->stations, list) {
-		int data_count=0, mgmt_count = 0;
-		list_for_each(l, &station->mgmt_queue.frames) {
-			mgmt_count++;
+		int q_ct[IEEE80211_NUM_ACS] = {};
+		for (i=0; i < IEEE80211_NUM_ACS; i++) {
+			list_for_each(l, &station->queues[i].frames) {
+				q_ct[i]++;
+			}
 		}
-		list_for_each(l, &station->data_queue.frames) {
-			data_count++;
-		}
-		printf("[" TIME_FMT "] Station " MAC_FMT " mgmt %d data %d\n",
-		       TIME_ARGS(&now), MAC_ARGS(station->addr), mgmt_count, data_count);
+		printf("[" TIME_FMT "] Station " MAC_FMT
+		       " BK %d BE %d VI %d VO %d\n",
+		       TIME_ARGS(&now), MAC_ARGS(station->addr),
+		       q_ct[IEEE80211_AC_BK], q_ct[IEEE80211_AC_BE],
+		       q_ct[IEEE80211_AC_VO], q_ct[IEEE80211_AC_VI]);
 
-		deliver_expired_frames_queue(ctx, &station->mgmt_queue.frames, &now);
-		deliver_expired_frames_queue(ctx, &station->data_queue.frames, &now);
+		for (i=0; i < IEEE80211_NUM_ACS; i++)
+			deliver_expired_frames_queue(ctx, &station->queues[i].frames, &now);
 	}
 	printf("\n\n");
 }

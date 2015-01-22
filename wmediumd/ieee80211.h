@@ -26,6 +26,14 @@
 
 #define IEEE80211_AVAILABLE_RATES 12
 #define IEEE80211_TX_MAX_RATES 4
+#define IEEE80211_NUM_ACS 4
+
+enum ieee80211_ac_numbers {
+	IEEE80211_AC_VO		= 0,
+	IEEE80211_AC_VI		= 1,
+	IEEE80211_AC_BE		= 2,
+	IEEE80211_AC_BK		= 3,
+};
 
 struct ieee80211_hdr {
         unsigned char frame_control[2];
