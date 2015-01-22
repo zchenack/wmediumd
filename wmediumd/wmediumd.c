@@ -57,11 +57,17 @@ static inline int pkt_duration(int len, int rate)
 	return 16 + 4 + 4 * div_round((16 + 8 * len + 6) * 10, 4 * rate);
 }
 
-void wqueue_init(struct wqueue *wqueue, int cw_min, int cw_max)
+static void wqueue_init(struct wqueue *wqueue, int cw_min, int cw_max)
 {
 	INIT_LIST_HEAD(&wqueue->frames);
 	wqueue->cw_min = cw_min;
 	wqueue->cw_max = cw_max;
+}
+
+void station_init_queues(struct station *station)
+{
+	wqueue_init(&station->data_queue, 15, 1023);
+	wqueue_init(&station->mgmt_queue, 3, 7);
 }
 
 bool timespec_before(struct timespec *t1, struct timespec *t2)

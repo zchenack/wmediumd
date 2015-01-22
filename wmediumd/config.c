@@ -92,8 +92,7 @@ int load_config(struct wmediumd *ctx, const char *file)
 			exit(1);
 		}
 		memcpy(station->addr, addr, ETH_ALEN);
-		wqueue_init(&station->data_queue, 15, 1023);
-		wqueue_init(&station->mgmt_queue, 3, 7);
+		station_init_queues(station);
 		list_add_tail(&station->list, &ctx->stations);
 
 		printf("Added station %d: " MAC_FMT "\n", i, MAC_ARGS(addr));
