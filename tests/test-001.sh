@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SUBNET=192.168.250
+SUBNET=10.10.10
 NUM_PHYS=2
 
 if [[ $UID -ne 0 ]]; then
