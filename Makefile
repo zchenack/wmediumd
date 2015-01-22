@@ -1,6 +1,6 @@
 SHELL=/bin/sh
 MAKE = make
-SUBDIRS ?= rawsocket wmediumd
+SUBDIRS ?= wmediumd
 
 all:
 
@@ -14,4 +14,3 @@ clean:
 	echo "Clearing in $$i..."; \
 	(cd $$i; $(MAKE) clean); done
 
- 
