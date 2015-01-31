@@ -103,7 +103,7 @@ void rearm_timer(struct wmediumd *ctx)
 	 */
 	list_for_each_entry(station, &ctx->stations, list) {
 		for (i=0; i < IEEE80211_NUM_ACS; i++) {
-			frame = list_first_entry(&station->queues[i].frames,
+			frame = list_first_entry_or_null(&station->queues[i].frames,
 						 struct frame, list);
 
 			if (frame && (!set_min_expires ||
