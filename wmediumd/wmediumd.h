@@ -74,6 +74,8 @@ struct wmediumd
 	struct nl_cb *cb;
 	struct nl_cache *cache;
 	struct genl_family *family;
+
+	int snr;
 };
 
 struct hwsim_tx_rate {

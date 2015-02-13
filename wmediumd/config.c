@@ -53,6 +53,9 @@ int load_config(struct wmediumd *ctx, const char *file)
 	int count_value;
 	struct station *station;
 
+	/* TODO: per link */
+	int snr = 30;
+
 	/*initialize the config file*/
 	cf = &cfg;
 	config_init(cf);
@@ -68,6 +71,7 @@ int load_config(struct wmediumd *ctx, const char *file)
 	}
 
 	/*let's parse the values*/
+	config_lookup_int(cf, "ifaces.snr", &snr);
 	config_lookup_int(cf, "ifaces.count", &count_value);
 	ids = config_lookup(cf, "ifaces.ids");
 	count_ids = config_setting_length(ids);
@@ -97,6 +101,7 @@ int load_config(struct wmediumd *ctx, const char *file)
 
 		printf("Added station %d: " MAC_FMT "\n", i, MAC_ARGS(addr));
 	}
+	ctx->snr = snr;
 
 	config_destroy(cf);
 	return (EXIT_SUCCESS);

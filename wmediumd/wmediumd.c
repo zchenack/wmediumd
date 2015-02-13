@@ -146,7 +146,7 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	int retries = 0;
 
 	/* TODO lookup from somewhere */
-	double snr = 15;
+	double snr = (double) ctx->snr;
 
 	clock_gettime(CLOCK_MONOTONIC, &now);
 
