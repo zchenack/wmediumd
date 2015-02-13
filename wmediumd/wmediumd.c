@@ -238,8 +238,6 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 
 	timespec_add_usec(&target, send_time);
 
-	printf("[" TIME_FMT "] queued for " TIME_FMT " len: %zd retries: %d ack: %d rate: %d (%d) send_time usec %d %f %f\n", TIME_ARGS(&now), TIME_ARGS(&target), frame->data_len, retries, is_acked, index_to_rate[rate_idx], rate_idx, send_time, error_prob, choice);
-
 	frame->expires = target;
 	rearm_timer(ctx);
 }
