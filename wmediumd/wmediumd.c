@@ -35,7 +35,6 @@
 #include "ieee80211.h"
 #include "config.h"
 
-struct nl_cb *cb;
 struct nl_cache *cache;
 struct genl_family *family;
 
@@ -506,13 +505,13 @@ void init_netlink(struct wmediumd *ctx)
 {
 	struct nl_sock *sock;
 
-	cb = nl_cb_alloc(NL_CB_CUSTOM);
-	if (!cb) {
+	ctx->cb = nl_cb_alloc(NL_CB_CUSTOM);
+	if (!ctx->cb) {
 		printf("Error allocating netlink callbacks\n");
 		exit(EXIT_FAILURE);
 	}
 
-	sock = nl_socket_alloc_cb(cb);
+	sock = nl_socket_alloc_cb(ctx->cb);
 	if (!sock) {
 		printf("Error allocationg netlink socket\n");
 		exit(EXIT_FAILURE);
@@ -530,8 +529,8 @@ void init_netlink(struct wmediumd *ctx)
 		exit(EXIT_FAILURE);
 	}
 
-	nl_cb_set(cb, NL_CB_MSG_IN, NL_CB_CUSTOM, process_messages_cb, ctx);
-	nl_cb_err(cb, NL_CB_CUSTOM, nl_err_cb, ctx);
+	nl_cb_set(ctx->cb, NL_CB_MSG_IN, NL_CB_CUSTOM, process_messages_cb, ctx);
+	nl_cb_err(ctx->cb, NL_CB_CUSTOM, nl_err_cb, ctx);
 }
 
 /*
@@ -636,7 +635,7 @@ int main(int argc, char* argv[])
 
 	/* Free all memory */
 	free(ctx.sock);
-	free(cb);
+	free(ctx.cb);
 	free(cache);
 	free(family);
 
