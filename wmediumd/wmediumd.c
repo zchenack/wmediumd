@@ -35,9 +35,6 @@
 #include "ieee80211.h"
 #include "config.h"
 
-struct nl_cache *cache;
-struct genl_family *family;
-
 static int index_to_rate[] = {
 	60, 90, 120, 180, 240, 360, 480, 540
 };
@@ -241,12 +238,14 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 /*
  *	Send a tx_info frame to the kernel space.
  */
-int send_tx_info_frame_nl(struct nl_sock *sock,
+int send_tx_info_frame_nl(struct wmediumd *ctx,
 			  u8 *src,
 			  unsigned int flags, int signal,
 			  struct hwsim_tx_rate *tx_attempts,
 			  u64 cookie)
 {
+	struct nl_sock *sock = ctx->sock;
+
 	struct nl_msg *msg;
 	msg = nlmsg_alloc();
 	if (!msg) {
@@ -254,7 +253,7 @@ int send_tx_info_frame_nl(struct nl_sock *sock,
 		goto out;
 	}
 
-	genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family_get_id(family),
+	genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family_get_id(ctx->family),
 		    0, NLM_F_REQUEST, HWSIM_CMD_TX_INFO_FRAME, VERSION_NR);
 
 	int rc;
@@ -283,17 +282,19 @@ out:
 /*
  *	Send a cloned frame to the kernel space.
  */
-int send_cloned_frame_msg(struct nl_sock *sock, u8 *dst,
+int send_cloned_frame_msg(struct wmediumd *ctx, u8 *dst,
 			  u8 *data, int data_len, int rate_idx, int signal)
 {
 	struct nl_msg *msg;
+	struct nl_sock *sock = ctx->sock;
+
 	msg = nlmsg_alloc();
 	if (!msg) {
 		printf("Error allocating new message MSG!\n");
 		goto out;
 	}
 
-	genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family_get_id(family),
+	genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family_get_id(ctx->family),
 		    0, NLM_F_REQUEST, HWSIM_CMD_FRAME, VERSION_NR);
 
 	int rc;
@@ -334,7 +335,7 @@ void deliver_frame(struct wmediumd *ctx, struct frame *frame)
 
 			if (is_multicast_ether_addr(dest) ||
 			    memcmp(dest, station->addr, ETH_ALEN) == 0) {
-				send_cloned_frame_msg(ctx->sock, station->addr,
+				send_cloned_frame_msg(ctx, station->addr,
 						      frame->data,
 						      frame->data_len,
 						      1, signal);
@@ -342,7 +343,7 @@ void deliver_frame(struct wmediumd *ctx, struct frame *frame)
 		}
 	}
 
-	send_tx_info_frame_nl(ctx->sock, frame->sender->addr, frame->flags,
+	send_tx_info_frame_nl(ctx, frame->sender->addr, frame->flags,
 			      signal, frame->tx_rates, frame->cookie);
 
 	free(frame);
@@ -475,8 +476,9 @@ out:
 /*
  *	Send a register message to kernel
  */
-int send_register_msg(struct nl_sock *sock)
+int send_register_msg(struct wmediumd *ctx)
 {
+	struct nl_sock *sock = ctx->sock;
 	struct nl_msg *msg;
 	msg = nlmsg_alloc();
 	if (!msg) {
@@ -484,7 +486,7 @@ int send_register_msg(struct nl_sock *sock)
 		return -1;
 	}
 
-	genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family_get_id(family),
+	genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family_get_id(ctx->family),
 		    0, NLM_F_REQUEST, HWSIM_CMD_REGISTER, VERSION_NR);
 	nl_send_auto_complete(sock,msg);
 	nlmsg_free(msg);
@@ -520,11 +522,11 @@ void init_netlink(struct wmediumd *ctx)
 	ctx->sock = sock;
 
 	genl_connect(sock);
-	genl_ctrl_alloc_cache(sock, &cache);
+	genl_ctrl_alloc_cache(sock, &ctx->cache);
 
-	family = genl_ctrl_search_by_name(cache, "MAC80211_HWSIM");
+	ctx->family = genl_ctrl_search_by_name(ctx->cache, "MAC80211_HWSIM");
 
-	if (!family) {
+	if (!ctx->family) {
 		printf("Family MAC80211_HWSIM not registered\n");
 		exit(EXIT_FAILURE);
 	}
@@ -627,7 +629,7 @@ int main(int argc, char* argv[])
 	event_add(&ev_timer, NULL);
 
 	/* Send a register msg to the kernel */
-	if (send_register_msg(ctx.sock)==0)
+	if (send_register_msg(&ctx)==0)
 		printf("REGISTER SENT!\n");
 
 	/* enter libevent main loop */
@@ -636,8 +638,8 @@ int main(int argc, char* argv[])
 	/* Free all memory */
 	free(ctx.sock);
 	free(ctx.cb);
-	free(cache);
-	free(family);
+	free(ctx.cache);
+	free(ctx.family);
 
 	return EXIT_SUCCESS;
 }

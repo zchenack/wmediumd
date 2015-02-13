@@ -72,6 +72,8 @@ struct wmediumd
 	struct nl_sock *sock;
 	struct list_head stations;
 	struct nl_cb *cb;
+	struct nl_cache *cache;
+	struct genl_family *family;
 };
 
 struct hwsim_tx_rate {
