@@ -35,7 +35,6 @@
 #include "ieee80211.h"
 #include "config.h"
 
-struct nl_msg *msg;
 struct nl_cb *cb;
 struct nl_cache *cache;
 struct genl_family *family;
@@ -249,7 +248,7 @@ int send_tx_info_frame_nl(struct nl_sock *sock,
 			  struct hwsim_tx_rate *tx_attempts,
 			  u64 cookie)
 {
-
+	struct nl_msg *msg;
 	msg = nlmsg_alloc();
 	if (!msg) {
 		printf("Error allocating new message MSG!\n");
@@ -288,7 +287,7 @@ out:
 int send_cloned_frame_msg(struct nl_sock *sock, u8 *dst,
 			  u8 *data, int data_len, int rate_idx, int signal)
 {
-
+	struct nl_msg *msg;
 	msg = nlmsg_alloc();
 	if (!msg) {
 		printf("Error allocating new message MSG!\n");
@@ -479,6 +478,7 @@ out:
  */
 int send_register_msg(struct nl_sock *sock)
 {
+	struct nl_msg *msg;
 	msg = nlmsg_alloc();
 	if (!msg) {
 		printf("Error allocating new message MSG!\n");
@@ -636,7 +636,6 @@ int main(int argc, char* argv[])
 
 	/* Free all memory */
 	free(ctx.sock);
-	free(msg);
 	free(cb);
 	free(cache);
 	free(family);
