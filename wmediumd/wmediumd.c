@@ -572,7 +572,7 @@ int main(int argc, char* argv[])
 	struct event ev_cmd;
 	struct event ev_timer;
 	struct wmediumd ctx;
-	char *config_file;
+	char *config_file = NULL;
 
 	/* Set stdout buffering to line mode */
 	setvbuf (stdout, NULL, _IOLBF, BUFSIZ);
@@ -613,6 +613,11 @@ int main(int argc, char* argv[])
 
 	if (optind < argc)
 		print_help(EXIT_FAILURE);
+
+	if (!config_file) {
+		printf("%s: config file must be supplied\n", argv[0]);
+		print_help(EXIT_FAILURE);
+	}
 
 	INIT_LIST_HEAD(&ctx.stations);
 	load_config(&ctx, config_file);
