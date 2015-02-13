@@ -236,7 +236,7 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 }
 
 /*
- *	Send a tx_info frame to the kernel space.
+ * Report transmit status to the kernel.
  */
 int send_tx_info_frame_nl(struct wmediumd *ctx,
 			  u8 *src,
@@ -280,7 +280,7 @@ out:
 }
 
 /*
- *	Send a cloned frame to the kernel space.
+ * Send a data frame to the kernel for reception at a specific radio.
  */
 int send_cloned_frame_msg(struct wmediumd *ctx, u8 *dst,
 			  u8 *data, int data_len, int rate_idx, int signal)
@@ -415,7 +415,8 @@ static struct station *get_station_by_addr(struct wmediumd *ctx, u8 *addr)
 
 
 /*
- *	Callback function to process messages received from kernel
+ * Handle events from the kernel.  Process CMD_FRAME events and queue them
+ * for later delivery with the scheduler.
  */
 static int process_messages_cb(struct nl_msg *msg, void *arg)
 {
@@ -474,7 +475,7 @@ out:
 }
 
 /*
- *	Send a register message to kernel
+ * Register with the kernel to start receiving new frames.
  */
 int send_register_msg(struct wmediumd *ctx)
 {
@@ -501,7 +502,7 @@ static void sock_event_cb(int fd, short what, void *data)
 }
 
 /*
- *	Init netlink
+ * Setup netlink socket and callbacks.
  */
 void init_netlink(struct wmediumd *ctx)
 {
@@ -566,10 +567,8 @@ int main(int argc, char* argv[])
 	struct wmediumd ctx;
 	char *config_file = NULL;
 
-	/* Set stdout buffering to line mode */
 	setvbuf (stdout, NULL, _IOLBF, BUFSIZ);
 
-	/* no arguments given */
 	if(argc == 1) {
 		fprintf(stderr, "This program needs arguments....\n\n");
 		print_help(EXIT_FAILURE);
@@ -628,14 +627,13 @@ int main(int argc, char* argv[])
 	event_set(&ev_timer, ctx.timerfd, EV_READ | EV_PERSIST, timer_cb, &ctx);
 	event_add(&ev_timer, NULL);
 
-	/* Send a register msg to the kernel */
+	/* register for new frames */
 	if (send_register_msg(&ctx)==0)
 		printf("REGISTER SENT!\n");
 
 	/* enter libevent main loop */
 	event_dispatch();
 
-	/* Free all memory */
 	free(ctx.sock);
 	free(ctx.cb);
 	free(ctx.cache);
