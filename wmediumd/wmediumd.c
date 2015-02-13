@@ -129,7 +129,8 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	u8 *dest = hdr->addr1;
 	struct timespec now, target;
 	struct wqueue *queue;
-	struct frame *prev;
+	struct frame *tail;
+	struct station *tmpsta;
 	int send_time;
 	int cw;
 	double error_prob;
@@ -137,6 +138,7 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	bool noack = false;
 	int i, j;
 	int rate_idx;
+	int ac;
 
 	/* TODO configure phy parameters */
 	int slot_time = 9;
@@ -160,9 +162,8 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	 */
 
 	/* TODO actually look at QoS header */
-	queue = frame_is_mgmt(frame) ? &station->queues[IEEE80211_AC_VO] :
-				       &station->queues[IEEE80211_AC_BE];
-	list_add_tail(&frame->list, &queue->frames);
+	ac = frame_is_mgmt(frame) ? IEEE80211_AC_VO : IEEE80211_AC_BE;
+	queue = &station->queues[ac];
 
 	/* try to "send" this frame at each of the rates in the rateset */
 	send_time = 0;
@@ -220,18 +221,23 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	}
 
 	/*
-	 * delivery time is now + send_time, or previous frame + send_time,
-	 * whichever is latest.
+	 * delivery time starts after any equal or higher prio frame
+	 * (or now, if none).
 	 */
 	target = now;
-	prev = list_prev_entry(frame, list);
-	if (&prev->list != &queue->frames &&
-	    timespec_before(&now, &prev->expires))
-		target = prev->expires;
+	for (i=0; i <= ac; i++) {
+		list_for_each_entry(tmpsta, &ctx->stations, list) {
+			tail = list_last_entry_or_null(&tmpsta->queues[i].frames,
+						       struct frame, list);
+			if (tail && timespec_before(&target, &tail->expires))
+				target = tail->expires;
+		}
+	}
 
 	timespec_add_usec(&target, send_time);
 
 	frame->expires = target;
+	list_add_tail(&frame->list, &queue->frames);
 	rearm_timer(ctx);
 }
 
