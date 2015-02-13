@@ -40,8 +40,6 @@ struct nl_cb *cb;
 struct nl_cache *cache;
 struct genl_family *family;
 
-int running = 0;
-
 static int index_to_rate[] = {
 	60, 90, 120, 180, 240, 360, 480, 540
 };
@@ -495,13 +493,6 @@ int send_register_msg(struct nl_sock *sock)
 	return 0;
 }
 
-/*
- *	Signal handler
- */
-void kill_handler() {
-	running = 0;
-}
-
 static void sock_event_cb(int fd, short what, void *data)
 {
 	struct wmediumd *ctx = data;
@@ -621,10 +612,6 @@ int main(int argc, char* argv[])
 
 	INIT_LIST_HEAD(&ctx.stations);
 	load_config(&ctx, config_file);
-
-	/* Handle kill signals */
-	running = 1;
-	signal(SIGUSR1, kill_handler);
 
 	/* init libevent */
 	event_init();
