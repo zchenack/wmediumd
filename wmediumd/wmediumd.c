@@ -390,7 +390,7 @@ void deliver_expired_frames(struct wmediumd *ctx)
 		       " BK %d BE %d VI %d VO %d\n",
 		       TIME_ARGS(&now), MAC_ARGS(station->addr),
 		       q_ct[IEEE80211_AC_BK], q_ct[IEEE80211_AC_BE],
-		       q_ct[IEEE80211_AC_VO], q_ct[IEEE80211_AC_VI]);
+		       q_ct[IEEE80211_AC_VI], q_ct[IEEE80211_AC_VO]);
 
 		for (i=0; i < IEEE80211_NUM_ACS; i++)
 			deliver_expired_frames_queue(ctx, &station->queues[i].frames, &now);
