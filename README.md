@@ -45,6 +45,9 @@ address, which has bit 6 set in the most significant octet
 (i.e. 42:00:00:xx:xx:xx, not 02:00:00:xx:xx:xx).  Set this appropriately
 using 'ip link set address'.
 
+This issue was fixed in commit cd37a90b2a417e5882414e19954eeed174aa4d29
+in Linux, released in kernel 4.1.0.
+
 ### Rates
 
 wmediumd's rate table is currently hardcoded to 802.11a OFDM rates.
