@@ -50,7 +50,6 @@ int load_config(struct wmediumd *ctx, const char *file)
 	config_t cfg, *cf;
 	const config_setting_t *ids;
 	int count_ids, i;
-	int count_value;
 	struct station *station;
 
 	/* TODO: per link */
@@ -72,15 +71,8 @@ int load_config(struct wmediumd *ctx, const char *file)
 
 	/*let's parse the values*/
 	config_lookup_int(cf, "ifaces.snr", &snr);
-	config_lookup_int(cf, "ifaces.count", &count_value);
 	ids = config_lookup(cf, "ifaces.ids");
 	count_ids = config_setting_length(ids);
-
-	/*cross check*/
-	if (count_value != count_ids) {
-		printf("Error on ifaces.count");
-		exit(EXIT_FAILURE);
-	}
 
 	printf("#_if = %d\n",count_ids);
 
