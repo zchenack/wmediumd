@@ -375,7 +375,7 @@ void deliver_frame(struct wmediumd *ctx, struct frame *frame)
 					signal, rate_idx, frame->data_len);
 
 				if (drand48() <= error_prob) {
-					printf("Dropped mcast from " MAC_FMT " to " MAC_FMT " at receiver\n", MAC_ARGS(src), MAC_ARGS(dest));
+					printf("Dropped mcast from " MAC_FMT " to " MAC_FMT " at receiver\n", MAC_ARGS(src), MAC_ARGS(station->addr));
 					continue;
 				}
 
