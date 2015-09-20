@@ -122,6 +122,23 @@ bool is_multicast_ether_addr(const u8 *addr)
 	return 0x01 & addr[0];
 }
 
+static struct station *get_station_by_addr(struct wmediumd *ctx, u8 *addr)
+{
+	struct station *station;
+	list_for_each_entry(station, &ctx->stations, list) {
+		if (memcmp(station->addr, addr, ETH_ALEN) == 0)
+			return station;
+	}
+	return NULL;
+}
+
+static int get_link_snr(struct wmediumd *ctx,
+			struct station *sender,
+			struct station *receiver)
+{
+	return ctx->snr_matrix[sender->index * ctx->num_stas + receiver->index];
+}
+
 void queue_frame(struct wmediumd *ctx, struct station *station,
 		 struct frame *frame)
 {
@@ -147,9 +164,6 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 
 	int retries = 0;
 
-	/* TODO lookup from somewhere */
-	double snr = (double) ctx->snr;
-
 	clock_gettime(CLOCK_MONOTONIC, &now);
 
 	int ack_time_usec = pkt_duration(14, index_to_rate[0]) + sifs;
@@ -168,6 +182,15 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	/* try to "send" this frame at each of the rates in the rateset */
 	send_time = 0;
 	cw = queue->cw_min;
+
+	double snr = (double) SNR_DEFAULT;
+
+	if (!is_multicast_ether_addr(dest)) {
+		struct station *deststa = get_station_by_addr(ctx, dest);
+		if (deststa)
+			snr = (double) get_link_snr(ctx, station, deststa);
+	}
+	frame->signal = (int) snr;
 
 	noack = frame_is_mgmt(frame) || is_multicast_ether_addr(dest);
 	double choice = -3.14;
@@ -331,26 +354,48 @@ void deliver_frame(struct wmediumd *ctx, struct frame *frame)
 	u8 *dest = hdr->addr1;
 	u8 *src = frame->sender->addr;
 
-	int signal = 35;
-
 	if (frame->flags & HWSIM_TX_STAT_ACK) {
 		/* rx the frame on the dest interface */
 		list_for_each_entry(station, &ctx->stations, list) {
 			if (memcmp(src, station->addr, ETH_ALEN) == 0)
 				continue;
 
-			if (is_multicast_ether_addr(dest) ||
-			    memcmp(dest, station->addr, ETH_ALEN) == 0) {
+			if (is_multicast_ether_addr(dest)) {
+				int signal, rate_idx;
+				double error_prob;
+
+				/*
+				 * we may or may not receive this based on
+				 * reverse link from sender -- check for
+				 * each receiver.
+				 */
+				signal = get_link_snr(ctx, station, frame->sender);
+				rate_idx = frame->tx_rates[0].idx;
+				error_prob = get_error_prob((double)
+					signal, rate_idx, frame->data_len);
+
+				if (drand48() <= error_prob) {
+					printf("Dropped mcast from " MAC_FMT " to " MAC_FMT " at receiver\n", MAC_ARGS(src), MAC_ARGS(dest));
+					continue;
+				}
+
 				send_cloned_frame_msg(ctx, station->addr,
 						      frame->data,
 						      frame->data_len,
 						      1, signal);
+
+			}
+			else if (memcmp(dest, station->addr, ETH_ALEN) == 0) {
+				send_cloned_frame_msg(ctx, station->addr,
+						      frame->data,
+						      frame->data_len,
+						      1, frame->signal);
 			}
 		}
 	}
 
 	send_tx_info_frame_nl(ctx, frame->sender->addr, frame->flags,
-			      signal, frame->tx_rates, frame->cookie);
+			      frame->signal, frame->tx_rates, frame->cookie);
 
 	free(frame);
 }
@@ -408,17 +453,6 @@ int nl_err_cb(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void *arg)
 
 	return NL_SKIP;
 }
-
-static struct station *get_station_by_addr(struct wmediumd *ctx, u8 *addr)
-{
-	struct station *station;
-	list_for_each_entry(station, &ctx->stations, list) {
-		if (memcmp(station->addr, addr, ETH_ALEN) == 0)
-			return station;
-	}
-	return NULL;
-}
-
 
 /*
  * Handle events from the kernel.  Process CMD_FRAME events and queue them

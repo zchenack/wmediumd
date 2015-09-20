@@ -43,6 +43,8 @@
 #define HWSIM_ATTR_MAX 8
 #define VERSION_NR 1
 
+#define SNR_DEFAULT 30
+
 #include <stdint.h>
 #include <stdbool.h>
 #include "list.h"
@@ -70,12 +72,14 @@ struct wmediumd
 	int timerfd;
 
 	struct nl_sock *sock;
+
+	int num_stas;
 	struct list_head stations;
+	int *snr_matrix;
+
 	struct nl_cb *cb;
 	struct nl_cache *cache;
 	struct genl_family *family;
-
-	int snr;
 };
 
 struct hwsim_tx_rate {
@@ -92,6 +96,7 @@ struct wqueue
 
 struct station
 {
+	int index;
 	u8 addr[ETH_ALEN];
 	struct wqueue queues[IEEE80211_NUM_ACS];
 	struct list_head list;
@@ -104,6 +109,7 @@ struct frame
 	bool acked;
 	u64 cookie;
 	int flags;
+	int signal;
 	int tx_rates_count;
 	struct station *sender;
 	struct hwsim_tx_rate tx_rates[IEEE80211_TX_MAX_RATES];
