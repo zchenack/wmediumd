@@ -183,14 +183,14 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	send_time = 0;
 	cw = queue->cw_min;
 
-	double snr = (double) SNR_DEFAULT;
+	int snr = SNR_DEFAULT;
 
 	if (!is_multicast_ether_addr(dest)) {
 		struct station *deststa = get_station_by_addr(ctx, dest);
 		if (deststa)
-			snr = (double) get_link_snr(ctx, station, deststa);
+			snr = get_link_snr(ctx, station, deststa);
 	}
-	frame->signal = (int) snr;
+	frame->signal = snr;
 
 	noack = frame_is_mgmt(frame) || is_multicast_ether_addr(dest);
 	double choice = -3.14;
