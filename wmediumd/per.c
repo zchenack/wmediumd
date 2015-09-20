@@ -143,6 +143,9 @@ double get_error_prob(double snr, unsigned int rate_idx, int frame_len)
     enum fec_rate fec;
     double ber;
 
+    if (snr <= 0.0)
+        return 1.0;
+
     if (rate_idx >= ARRAY_SIZE(rateset))
         return 1.0;
 
