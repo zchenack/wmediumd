@@ -32,12 +32,12 @@ ifaces :
 	];
 
 	links = (
-		(0, 1, 18),
+		(0, 1, 10),
 		(0, 2, 20),
 		(0, 3, 0),
 		(1, 2, 30),
-		(1, 3, 20),
-		(2, 3, 15)
+		(1, 3, 10),
+		(2, 3, 20)
 	);
 };
 __EOM
@@ -88,7 +88,17 @@ winct=$i
 # start wmediumd
 win=$session:$((winct+1)).0
 winct=$((winct+1))
-tmux new-window -t $session -n wmediumd
+tmux new-window -a -t $session -n wmediumd
 tmux send-keys -t $win '../wmediumd/wmediumd -c diamond.cfg' C-m
+
+# start iperf server on 10.10.10.13
+tmux send-keys -t $session:4 'iperf -s' C-m
+
+# enable monitor
+tmux send-keys -t $session:0 'ip link set hwsim0 up' C-m
+
+tmux select-window -t $session:1
+tmux send-keys -t $session:1 'ping -c 5 10.10.10.13' C-m
+tmux send-keys -t $session:1 'iperf -c 10.10.10.13 -i 5 -t 120'
 
 tmux attach
