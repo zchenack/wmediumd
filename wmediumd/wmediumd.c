@@ -587,7 +587,7 @@ void print_help(int exval)
 	printf("  -h              print this help and exit\n");
 	printf("  -V              print version and exit\n\n");
 
-	printf("  -c FILE         set intput config file\n");
+	printf("  -c FILE         set input config file\n");
 
 	exit(exval);
 }
