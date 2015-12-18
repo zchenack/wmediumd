@@ -565,7 +565,7 @@ void init_netlink(struct wmediumd *ctx)
 
 	sock = nl_socket_alloc_cb(ctx->cb);
 	if (!sock) {
-		printf("Error allocationg netlink socket\n");
+		printf("Error allocating netlink socket\n");
 		exit(EXIT_FAILURE);
 	}
 
