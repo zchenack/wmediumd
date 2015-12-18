@@ -268,7 +268,7 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
  * Report transmit status to the kernel.
  */
 int send_tx_info_frame_nl(struct wmediumd *ctx,
-			  u8 *src,
+			  struct station *src,
 			  unsigned int flags, int signal,
 			  struct hwsim_tx_rate *tx_attempts,
 			  u64 cookie)
@@ -286,7 +286,7 @@ int send_tx_info_frame_nl(struct wmediumd *ctx,
 		    0, NLM_F_REQUEST, HWSIM_CMD_TX_INFO_FRAME, VERSION_NR);
 
 	int rc;
-	rc = nla_put(msg, HWSIM_ATTR_ADDR_TRANSMITTER, ETH_ALEN, src);
+	rc = nla_put(msg, HWSIM_ATTR_ADDR_TRANSMITTER, ETH_ALEN, src->hwaddr);
 	rc = nla_put_u32(msg, HWSIM_ATTR_FLAGS, flags);
 	rc = nla_put_u32(msg, HWSIM_ATTR_SIGNAL, signal);
 	rc = nla_put(msg, HWSIM_ATTR_TX_INFO,
@@ -311,7 +311,7 @@ out:
 /*
  * Send a data frame to the kernel for reception at a specific radio.
  */
-int send_cloned_frame_msg(struct wmediumd *ctx, u8 *dst,
+int send_cloned_frame_msg(struct wmediumd *ctx, struct station *dst,
 			  u8 *data, int data_len, int rate_idx, int signal)
 {
 	struct nl_msg *msg;
@@ -328,7 +328,7 @@ int send_cloned_frame_msg(struct wmediumd *ctx, u8 *dst,
 
 	int rc;
 
-	rc = nla_put(msg, HWSIM_ATTR_ADDR_RECEIVER, ETH_ALEN, dst);
+	rc = nla_put(msg, HWSIM_ATTR_ADDR_RECEIVER, ETH_ALEN, dst->hwaddr);
 	rc = nla_put(msg, HWSIM_ATTR_FRAME, data_len, data);
 	rc = nla_put_u32(msg, HWSIM_ATTR_RX_RATE, 1);
 	rc = nla_put_u32(msg, HWSIM_ATTR_SIGNAL, -50);
@@ -337,7 +337,7 @@ int send_cloned_frame_msg(struct wmediumd *ctx, u8 *dst,
 		printf("Error filling payload\n");
 		goto out;
 	}
-	printf("cloned msg dest " MAC_FMT " len %d \n", MAC_ARGS(dst), data_len);
+	printf("cloned msg dest " MAC_FMT " len %d \n", MAC_ARGS(dst->addr), data_len);
 
 	nl_send_auto_complete(sock,msg);
 	nlmsg_free(msg);
@@ -379,14 +379,14 @@ void deliver_frame(struct wmediumd *ctx, struct frame *frame)
 					continue;
 				}
 
-				send_cloned_frame_msg(ctx, station->addr,
+				send_cloned_frame_msg(ctx, station,
 						      frame->data,
 						      frame->data_len,
 						      1, signal);
 
 			}
 			else if (memcmp(dest, station->addr, ETH_ALEN) == 0) {
-				send_cloned_frame_msg(ctx, station->addr,
+				send_cloned_frame_msg(ctx, station,
 						      frame->data,
 						      frame->data_len,
 						      1, frame->signal);
@@ -394,7 +394,7 @@ void deliver_frame(struct wmediumd *ctx, struct frame *frame)
 		}
 	}
 
-	send_tx_info_frame_nl(ctx, frame->sender->addr, frame->flags,
+	send_tx_info_frame_nl(ctx, frame->sender, frame->flags,
 			      frame->signal, frame->tx_rates, frame->cookie);
 
 	free(frame);
@@ -469,12 +469,14 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 
 	struct station *sender;
 	struct frame *frame;
+	struct ieee80211_hdr *hdr;
+	u8 *src;
 
 	if(gnlh->cmd == HWSIM_CMD_FRAME) {
 		/* we get the attributes*/
 		genlmsg_parse(nlh, 0, attrs, HWSIM_ATTR_MAX, NULL);
 		if (attrs[HWSIM_ATTR_ADDR_TRANSMITTER]) {
-			u8 *src = (u8 *) nla_data(attrs[HWSIM_ATTR_ADDR_TRANSMITTER]);
+			u8 *hwaddr = (u8 *) nla_data(attrs[HWSIM_ATTR_ADDR_TRANSMITTER]);
 
 			unsigned int data_len =
 				nla_len(attrs[HWSIM_ATTR_FRAME]);
@@ -488,11 +490,18 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 				nla_data(attrs[HWSIM_ATTR_TX_INFO]);
 			u64 cookie = nla_get_u64(attrs[HWSIM_ATTR_COOKIE]);
 
+			hdr = (struct ieee80211_hdr *) data;
+			src = hdr->addr2;
+
+			if (data_len < 6 + 6 + 4)
+				goto out;
+
 			sender = get_station_by_addr(ctx, src);
 			if (!sender) {
-				fprintf(stderr, "Unable to find sender station\n");
+				fprintf(stderr, "Unable to find sender station " MAC_FMT "\n", MAC_ARGS(src));
 				goto out;
 			}
+			memcpy(sender->hwaddr, hwaddr, ETH_ALEN);
 
 			frame = malloc(sizeof(*frame) + data_len);
 			if (!frame)

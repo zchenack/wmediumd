@@ -97,7 +97,8 @@ struct wqueue
 struct station
 {
 	int index;
-	u8 addr[ETH_ALEN];
+	u8 addr[ETH_ALEN];		/* virtual interface mac address */
+	u8 hwaddr[ETH_ALEN];		/* hardware address of hwsim radio */
 	struct wqueue queues[IEEE80211_NUM_ACS];
 	struct list_head list;
 };

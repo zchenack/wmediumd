@@ -84,6 +84,7 @@ int load_config(struct wmediumd *ctx, const char *file)
 		}
 		station->index = i;
 		memcpy(station->addr, addr, ETH_ALEN);
+		memcpy(station->hwaddr, addr, ETH_ALEN);
 		station_init_queues(station);
 		list_add_tail(&station->list, &ctx->stations);
 
