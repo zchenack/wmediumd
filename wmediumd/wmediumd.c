@@ -337,7 +337,7 @@ int send_cloned_frame_msg(struct wmediumd *ctx, struct station *dst,
 		printf("Error filling payload\n");
 		goto out;
 	}
-	printf("cloned msg dest " MAC_FMT " len %d \n", MAC_ARGS(dst->addr), data_len);
+	printf("cloned msg dest " MAC_FMT " (radio: " MAC_FMT ") len %d \n", MAC_ARGS(dst->addr), MAC_ARGS(dst->hwaddr), data_len);
 
 	nl_send_auto_complete(sock,msg);
 	nlmsg_free(msg);
