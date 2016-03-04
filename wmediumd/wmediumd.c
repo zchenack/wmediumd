@@ -95,13 +95,13 @@ void rearm_timer(struct wmediumd *ctx)
 	 * will be delivered, and set the timerfd accordingly.
 	 */
 	list_for_each_entry(station, &ctx->stations, list) {
-		for (i=0; i < IEEE80211_NUM_ACS; i++) {
+		for (i = 0; i < IEEE80211_NUM_ACS; i++) {
 			frame = list_first_entry_or_null(&station->queues[i].frames,
 						 struct frame, list);
 
 			if (frame && (!set_min_expires ||
 				      timespec_before(&frame->expires,
-					              &min_expires))) {
+						      &min_expires))) {
 				set_min_expires = true;
 				min_expires = frame->expires;
 			}
@@ -195,7 +195,7 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	noack = frame_is_mgmt(frame) || is_multicast_ether_addr(dest);
 	double choice = -3.14;
 
-	for (i=0; i < IEEE80211_TX_MAX_RATES && !is_acked; i++) {
+	for (i = 0; i < IEEE80211_TX_MAX_RATES && !is_acked; i++) {
 
 		rate_idx = frame->tx_rates[i].idx;
 
@@ -204,7 +204,7 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 			break;
 
 		error_prob = get_error_prob(snr, rate_idx, frame->data_len);
-		for (j=0; j < frame->tx_rates[i].count; j++) {
+		for (j = 0; j < frame->tx_rates[i].count; j++) {
 			int rate = index_to_rate[rate_idx];
 			send_time += difs + pkt_duration(frame->data_len, rate);
 
@@ -248,7 +248,7 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	 * (or now, if none).
 	 */
 	target = now;
-	for (i=0; i <= ac; i++) {
+	for (i = 0; i <= ac; i++) {
 		list_for_each_entry(tmpsta, &ctx->stations, list) {
 			tail = list_last_entry_or_null(&tmpsta->queues[i].frames,
 						       struct frame, list);
@@ -295,12 +295,12 @@ int send_tx_info_frame_nl(struct wmediumd *ctx,
 
 	rc = nla_put_u64(msg, HWSIM_ATTR_COOKIE, cookie);
 
-	if(rc!=0) {
+	if (rc != 0) {
 		printf("Error filling payload\n");
 		goto out;
 	}
 
-	nl_send_auto_complete(sock,msg);
+	nl_send_auto_complete(sock, msg);
 	nlmsg_free(msg);
 	return 0;
 out:
@@ -333,13 +333,13 @@ int send_cloned_frame_msg(struct wmediumd *ctx, struct station *dst,
 	rc = nla_put_u32(msg, HWSIM_ATTR_RX_RATE, 1);
 	rc = nla_put_u32(msg, HWSIM_ATTR_SIGNAL, -50);
 
-	if(rc!=0) {
+	if (rc != 0) {
 		printf("Error filling payload\n");
 		goto out;
 	}
 	printf("cloned msg dest " MAC_FMT " (radio: " MAC_FMT ") len %d \n", MAC_ARGS(dst->addr), MAC_ARGS(dst->hwaddr), data_len);
 
-	nl_send_auto_complete(sock,msg);
+	nl_send_auto_complete(sock, msg);
 	nlmsg_free(msg);
 	return 0;
 out:
@@ -384,8 +384,7 @@ void deliver_frame(struct wmediumd *ctx, struct frame *frame)
 						      frame->data_len,
 						      1, signal);
 
-			}
-			else if (memcmp(dest, station->addr, ETH_ALEN) == 0) {
+			} else if (memcmp(dest, station->addr, ETH_ALEN) == 0) {
 				send_cloned_frame_msg(ctx, station,
 						      frame->data,
 						      frame->data_len,
@@ -426,7 +425,7 @@ void deliver_expired_frames(struct wmediumd *ctx)
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	list_for_each_entry(station, &ctx->stations, list) {
 		int q_ct[IEEE80211_NUM_ACS] = {};
-		for (i=0; i < IEEE80211_NUM_ACS; i++) {
+		for (i = 0; i < IEEE80211_NUM_ACS; i++) {
 			list_for_each(l, &station->queues[i].frames) {
 				q_ct[i]++;
 			}
@@ -437,7 +436,7 @@ void deliver_expired_frames(struct wmediumd *ctx)
 		       q_ct[IEEE80211_AC_BK], q_ct[IEEE80211_AC_BE],
 		       q_ct[IEEE80211_AC_VI], q_ct[IEEE80211_AC_VO]);
 
-		for (i=0; i < IEEE80211_NUM_ACS; i++)
+		for (i = 0; i < IEEE80211_NUM_ACS; i++)
 			deliver_expired_frames_queue(ctx, &station->queues[i].frames, &now);
 	}
 	printf("\n\n");
@@ -472,7 +471,7 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 	struct ieee80211_hdr *hdr;
 	u8 *src;
 
-	if(gnlh->cmd == HWSIM_CMD_FRAME) {
+	if (gnlh->cmd == HWSIM_CMD_FRAME) {
 		/* we get the attributes*/
 		genlmsg_parse(nlh, 0, attrs, HWSIM_ATTR_MAX, NULL);
 		if (attrs[HWSIM_ATTR_ADDR_TRANSMITTER]) {
@@ -480,13 +479,13 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 
 			unsigned int data_len =
 				nla_len(attrs[HWSIM_ATTR_FRAME]);
-			char* data = (char*)nla_data(attrs[HWSIM_ATTR_FRAME]);
+			char *data = (char *)nla_data(attrs[HWSIM_ATTR_FRAME]);
 			unsigned int flags =
 				nla_get_u32(attrs[HWSIM_ATTR_FLAGS]);
 			unsigned int tx_rates_len =
 				nla_len(attrs[HWSIM_ATTR_TX_INFO]);
 			struct hwsim_tx_rate *tx_rates =
-				(struct hwsim_tx_rate*)
+				(struct hwsim_tx_rate *)
 				nla_data(attrs[HWSIM_ATTR_TX_INFO]);
 			u64 cookie = nla_get_u64(attrs[HWSIM_ATTR_COOKIE]);
 
@@ -538,7 +537,7 @@ int send_register_msg(struct wmediumd *ctx)
 
 	genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family_get_id(ctx->family),
 		    0, NLM_F_REQUEST, HWSIM_CMD_REGISTER, VERSION_NR);
-	nl_send_auto_complete(sock,msg);
+	nl_send_auto_complete(sock, msg);
 	nlmsg_free(msg);
 
 	return 0;
@@ -608,7 +607,7 @@ static void timer_cb(int fd, short what, void *data)
 	rearm_timer(ctx);
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
 	int opt;
 	struct event ev_cmd;
@@ -618,13 +617,13 @@ int main(int argc, char* argv[])
 
 	setvbuf (stdout, NULL, _IOLBF, BUFSIZ);
 
-	if(argc == 1) {
+	if (argc == 1) {
 		fprintf(stderr, "This program needs arguments....\n\n");
 		print_help(EXIT_FAILURE);
 	}
 
-	while((opt = getopt(argc, argv, "hVc:")) != -1) {
-		switch(opt) {
+	while ((opt = getopt(argc, argv, "hVc:")) != -1) {
+		switch (opt) {
 		case 'h':
 			print_help(EXIT_SUCCESS);
 			break;
@@ -677,7 +676,7 @@ int main(int argc, char* argv[])
 	event_add(&ev_timer, NULL);
 
 	/* register for new frames */
-	if (send_register_msg(&ctx)==0)
+	if (send_register_msg(&ctx) == 0)
 		printf("REGISTER SENT!\n");
 
 	/* enter libevent main loop */
