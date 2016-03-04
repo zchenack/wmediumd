@@ -114,6 +114,7 @@ void rearm_timer(struct wmediumd *ctx)
 bool frame_is_mgmt(struct frame *frame)
 {
 	struct ieee80211_hdr *hdr = (void *) frame->data;
+
 	return (hdr->frame_control[0] & 0x0c) == 0;
 }
 
@@ -125,6 +126,7 @@ bool is_multicast_ether_addr(const u8 *addr)
 static struct station *get_station_by_addr(struct wmediumd *ctx, u8 *addr)
 {
 	struct station *station;
+
 	list_for_each_entry(station, &ctx->stations, list) {
 		if (memcmp(station->addr, addr, ETH_ALEN) == 0)
 			return station;
@@ -274,8 +276,8 @@ int send_tx_info_frame_nl(struct wmediumd *ctx,
 			  u64 cookie)
 {
 	struct nl_sock *sock = ctx->sock;
-
 	struct nl_msg *msg;
+
 	msg = nlmsg_alloc();
 	if (!msg) {
 		printf("Error allocating new message MSG!\n");
@@ -286,6 +288,7 @@ int send_tx_info_frame_nl(struct wmediumd *ctx,
 		    0, NLM_F_REQUEST, HWSIM_CMD_TX_INFO_FRAME, VERSION_NR);
 
 	int rc;
+
 	rc = nla_put(msg, HWSIM_ATTR_ADDR_TRANSMITTER, ETH_ALEN, src->hwaddr);
 	rc = nla_put_u32(msg, HWSIM_ATTR_FLAGS, flags);
 	rc = nla_put_u32(msg, HWSIM_ATTR_SIGNAL, signal);
@@ -337,7 +340,8 @@ int send_cloned_frame_msg(struct wmediumd *ctx, struct station *dst,
 		printf("Error filling payload\n");
 		goto out;
 	}
-	printf("cloned msg dest " MAC_FMT " (radio: " MAC_FMT ") len %d \n", MAC_ARGS(dst->addr), MAC_ARGS(dst->hwaddr), data_len);
+	printf("cloned msg dest " MAC_FMT " (radio: " MAC_FMT ") len %d\n",
+	       MAC_ARGS(dst->addr), MAC_ARGS(dst->hwaddr), data_len);
 
 	nl_send_auto_complete(sock, msg);
 	nlmsg_free(msg);
@@ -529,6 +533,7 @@ int send_register_msg(struct wmediumd *ctx)
 {
 	struct nl_sock *sock = ctx->sock;
 	struct nl_msg *msg;
+
 	msg = nlmsg_alloc();
 	if (!msg) {
 		printf("Error allocating new message MSG!\n");
@@ -546,6 +551,7 @@ int send_register_msg(struct wmediumd *ctx)
 static void sock_event_cb(int fd, short what, void *data)
 {
 	struct wmediumd *ctx = data;
+
 	nl_recvmsgs_default(ctx->sock);
 }
 
@@ -603,6 +609,7 @@ void print_help(int exval)
 static void timer_cb(int fd, short what, void *data)
 {
 	struct wmediumd *ctx = data;
+
 	deliver_expired_frames(ctx);
 	rearm_timer(ctx);
 }
@@ -615,7 +622,7 @@ int main(int argc, char *argv[])
 	struct wmediumd ctx;
 	char *config_file = NULL;
 
-	setvbuf (stdout, NULL, _IOLBF, BUFSIZ);
+	setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
 
 	if (argc == 1) {
 		fprintf(stderr, "This program needs arguments....\n\n");
