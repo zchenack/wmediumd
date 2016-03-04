@@ -30,6 +30,7 @@
 static void string_to_mac_address(const char *str, u8 *addr)
 {
 	int a[ETH_ALEN];
+
 	sscanf(str, "%x:%x:%x:%x:%x:%x",
 	       &a[0], &a[1], &a[2], &a[3], &a[4], &a[5]);
 
@@ -100,9 +101,8 @@ int load_config(struct wmediumd *ctx, const char *file)
 	}
 
 	/* set default snrs */
-	for (i = 0; i < count_ids * count_ids; i++) {
+	for (i = 0; i < count_ids * count_ids; i++)
 		ctx->snr_matrix[i] = SNR_DEFAULT;
-	}
 
 	links = config_lookup(cf, "ifaces.links");
 	for (i = 0; links && i < config_setting_length(links); i++) {
