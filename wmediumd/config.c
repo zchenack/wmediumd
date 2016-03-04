@@ -60,9 +60,9 @@ int load_config(struct wmediumd *ctx, const char *file)
 	/*read the file*/
 	if (!config_read_file(cf, file)) {
 		printf("Error loading file %s at line:%d, reason: %s\n",
-		file,
-		config_error_line(cf),
-		config_error_text(cf));
+		       file,
+		       config_error_line(cf),
+		       config_error_text(cf));
 		config_destroy(cf);
 		exit(EXIT_FAILURE);
 	}

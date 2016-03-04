@@ -41,7 +41,7 @@ static int index_to_rate[] = {
 
 static inline int div_round(int a, int b)
 {
-	return (a + b-1) / b;
+	return (a + b - 1) / b;
 }
 
 static inline int pkt_duration(int len, int rate)
@@ -97,7 +97,7 @@ void rearm_timer(struct wmediumd *ctx)
 	list_for_each_entry(station, &ctx->stations, list) {
 		for (i = 0; i < IEEE80211_NUM_ACS; i++) {
 			frame = list_first_entry_or_null(&station->queues[i].frames,
-						 struct frame, list);
+							 struct frame, list);
 
 			if (frame && (!set_min_expires ||
 				      timespec_before(&frame->expires,
@@ -113,7 +113,7 @@ void rearm_timer(struct wmediumd *ctx)
 
 bool frame_is_mgmt(struct frame *frame)
 {
-	struct ieee80211_hdr *hdr = (void *) frame->data;
+	struct ieee80211_hdr *hdr = (void *)frame->data;
 
 	return (hdr->frame_control[0] & 0x0c) == 0;
 }
@@ -144,7 +144,7 @@ static int get_link_snr(struct wmediumd *ctx,
 void queue_frame(struct wmediumd *ctx, struct station *station,
 		 struct frame *frame)
 {
-	struct ieee80211_hdr *hdr = (void *) frame->data;
+	struct ieee80211_hdr *hdr = (void *)frame->data;
 	u8 *dest = hdr->addr1;
 	struct timespec now, target;
 	struct wqueue *queue;
@@ -375,11 +375,13 @@ void deliver_frame(struct wmediumd *ctx, struct frame *frame)
 				 */
 				signal = get_link_snr(ctx, station, frame->sender);
 				rate_idx = frame->tx_rates[0].idx;
-				error_prob = get_error_prob((double)
-					signal, rate_idx, frame->data_len);
+				error_prob = get_error_prob((double)signal,
+							    rate_idx, frame->data_len);
 
 				if (drand48() <= error_prob) {
-					printf("Dropped mcast from " MAC_FMT " to " MAC_FMT " at receiver\n", MAC_ARGS(src), MAC_ARGS(station->addr));
+					printf("Dropped mcast from "
+					       MAC_FMT " to " MAC_FMT " at receiver\n",
+					       MAC_ARGS(src), MAC_ARGS(station->addr));
 					continue;
 				}
 
@@ -479,7 +481,7 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 		/* we get the attributes*/
 		genlmsg_parse(nlh, 0, attrs, HWSIM_ATTR_MAX, NULL);
 		if (attrs[HWSIM_ATTR_ADDR_TRANSMITTER]) {
-			u8 *hwaddr = (u8 *) nla_data(attrs[HWSIM_ATTR_ADDR_TRANSMITTER]);
+			u8 *hwaddr = (u8 *)nla_data(attrs[HWSIM_ATTR_ADDR_TRANSMITTER]);
 
 			unsigned int data_len =
 				nla_len(attrs[HWSIM_ATTR_FRAME]);
@@ -493,7 +495,7 @@ static int process_messages_cb(struct nl_msg *msg, void *arg)
 				nla_data(attrs[HWSIM_ATTR_TX_INFO]);
 			u64 cookie = nla_get_u64(attrs[HWSIM_ATTR_COOKIE]);
 
-			hdr = (struct ieee80211_hdr *) data;
+			hdr = (struct ieee80211_hdr *)data;
 			src = hdr->addr2;
 
 			if (data_len < 6 + 6 + 4)
@@ -649,8 +651,8 @@ int main(int argc, char *argv[])
 			print_help(EXIT_FAILURE);
 			break;
 		case '?':
-			printf("wmediumd: Error - No such option:"
-			       " `%c'\n\n", optopt);
+			printf("wmediumd: Error - No such option: "
+			       "`%c'\n\n", optopt);
 			print_help(EXIT_FAILURE);
 			break;
 		}
