@@ -27,7 +27,7 @@
 
 #include "wmediumd.h"
 
-static void string_to_mac_address(const char* str, u8 *addr)
+static void string_to_mac_address(const char *str, u8 *addr)
 {
 	int a[ETH_ALEN];
 	sscanf(str, "%x:%x:%x:%x:%x:%x",
@@ -69,7 +69,7 @@ int load_config(struct wmediumd *ctx, const char *file)
 	ids = config_lookup(cf, "ifaces.ids");
 	count_ids = config_setting_length(ids);
 
-	printf("#_if = %d\n",count_ids);
+	printf("#_if = %d\n", count_ids);
 
 	/* Fill the mac_addr */
 	for (i = 0; i < count_ids; i++) {
@@ -105,7 +105,7 @@ int load_config(struct wmediumd *ctx, const char *file)
 	}
 
 	links = config_lookup(cf, "ifaces.links");
-	for (i=0; links && i < config_setting_length(links); i++) {
+	for (i = 0; links && i < config_setting_length(links); i++) {
 		config_setting_t *link;
 		int start, end, snr;
 
@@ -129,5 +129,5 @@ int load_config(struct wmediumd *ctx, const char *file)
 	}
 
 	config_destroy(cf);
-	return (EXIT_SUCCESS);
+	return EXIT_SUCCESS;
 }
