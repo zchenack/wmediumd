@@ -17,7 +17,7 @@
  *
  *	You should have received a copy of the GNU General Public License
  *	along with this program; if not, write to the Free Software
- *	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 
+ *	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  *	02110-1301, USA.
  */
 
@@ -67,8 +67,7 @@ typedef uint64_t u64;
 #define min(x,y) ((x) < (y) ? (x) : (y))
 #endif
 
-struct wmediumd
-{
+struct wmediumd {
 	int timerfd;
 
 	struct nl_sock *sock;
@@ -83,19 +82,17 @@ struct wmediumd
 };
 
 struct hwsim_tx_rate {
-        signed char idx;
-        unsigned char count;
+	signed char idx;
+	unsigned char count;
 };
 
-struct wqueue
-{
+struct wqueue {
 	struct list_head frames;
 	int cw_min;
 	int cw_max;
 };
 
-struct station
-{
+struct station {
 	int index;
 	u8 addr[ETH_ALEN];		/* virtual interface mac address */
 	u8 hwaddr[ETH_ALEN];		/* hardware address of hwsim radio */
@@ -103,8 +100,7 @@ struct station
 	struct list_head list;
 };
 
-struct frame
-{
+struct frame {
 	struct list_head list;		/* frame queue list */
 	struct timespec expires;	/* frame delivery (absolute) */
 	bool acked;
