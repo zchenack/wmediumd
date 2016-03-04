@@ -17,7 +17,7 @@
  *
  *	You should have received a copy of the GNU General Public License
  *	along with this program; if not, write to the Free Software
- *	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  
+ *	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  *	02110-1301, USA.
  */
 
@@ -36,13 +36,13 @@ enum ieee80211_ac_numbers {
 };
 
 struct ieee80211_hdr {
-        unsigned char frame_control[2];
-       	unsigned char duration_id[2];
-        unsigned char addr1[6];
-        unsigned char addr2[6];
-        unsigned char addr3[6];
-        unsigned char seq_ctrl[2];
-        unsigned char addr4[6];
+	unsigned char frame_control[2];
+	unsigned char duration_id[2];
+	unsigned char addr1[6];
+	unsigned char addr2[6];
+	unsigned char addr3[6];
+	unsigned char seq_ctrl[2];
+	unsigned char addr4[6];
 };
 
 #endif /* IEEE80211 */
