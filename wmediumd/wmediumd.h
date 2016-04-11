@@ -47,15 +47,12 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+
 #include "list.h"
 #include "ieee80211.h"
 
 typedef uint8_t u8;
 typedef uint64_t u64;
-
-#ifndef ETH_ALEN
-#define ETH_ALEN 6
-#endif
 
 #define TIME_FMT "%lld.%06lld"
 #define TIME_ARGS(a) ((unsigned long long)(a)->tv_sec), ((unsigned long long)(a)->tv_nsec/1000)

@@ -111,11 +111,61 @@ void rearm_timer(struct wmediumd *ctx)
 	timerfd_settime(ctx->timerfd, TFD_TIMER_ABSTIME, &expires, NULL);
 }
 
-bool frame_is_mgmt(struct frame *frame)
+static inline bool frame_has_a4(struct frame *frame)
 {
 	struct ieee80211_hdr *hdr = (void *)frame->data;
 
-	return (hdr->frame_control[0] & 0x0c) == 0;
+	return (hdr->frame_control[1] & (FCTL_TODS | FCTL_FROMDS)) ==
+		(FCTL_TODS | FCTL_FROMDS);
+}
+
+static inline bool frame_is_mgmt(struct frame *frame)
+{
+	struct ieee80211_hdr *hdr = (void *)frame->data;
+
+	return (hdr->frame_control[0] & FCTL_FTYPE) == FTYPE_MGMT;
+}
+
+static inline bool frame_is_data(struct frame *frame)
+{
+	struct ieee80211_hdr *hdr = (void *)frame->data;
+
+	return (hdr->frame_control[0] & FCTL_FTYPE) == FTYPE_DATA;
+}
+
+static inline bool frame_is_data_qos(struct frame *frame)
+{
+	struct ieee80211_hdr *hdr = (void *)frame->data;
+
+	return (hdr->frame_control[0] & (FCTL_FTYPE | STYPE_QOS_DATA)) ==
+		(FTYPE_DATA | STYPE_QOS_DATA);
+}
+
+static inline u8 *frame_get_qos_ctl(struct frame *frame)
+{
+	struct ieee80211_hdr *hdr = (void *)frame->data;
+
+	if (frame_has_a4(frame))
+		return (u8 *)hdr + 30;
+	else
+		return (u8 *)hdr + 24;
+}
+
+static enum ieee80211_ac_number frame_select_queue_80211(struct frame *frame)
+{
+	u8 *p;
+	int priority;
+
+	if (!frame_is_data(frame))
+		return IEEE80211_AC_VO;
+
+	if (!frame_is_data_qos(frame))
+		return IEEE80211_AC_BE;
+
+	p = frame_get_qos_ctl(frame);
+	priority = *p & QOS_CTL_TAG1D_MASK;
+
+	return ieee802_1d_to_ac[priority];
 }
 
 bool is_multicast_ether_addr(const u8 *addr)
@@ -177,8 +227,7 @@ void queue_frame(struct wmediumd *ctx, struct station *station,
 	 * add the expiration time of the previous frame in the queue.
 	 */
 
-	/* TODO actually look at QoS header */
-	ac = frame_is_mgmt(frame) ? IEEE80211_AC_VO : IEEE80211_AC_BE;
+	ac = frame_select_queue_80211(frame);
 	queue = &station->queues[ac];
 
 	/* try to "send" this frame at each of the rates in the rateset */
