@@ -1,0 +1,63 @@
+function meshup-iw {
+	local if=$1;
+	local meshid=$2;
+	local freq=$3;
+	local ip=$4;
+
+	ip link set $if down
+	iw dev $if set type mp
+	ip link set $if up
+	iw dev $if mesh join $meshid freq $freq
+	ip addr add $ip/24 dev $if 2>/dev/null
+}
+
+function meshup-wpas-open {
+	local if=$1;
+	local meshid=$2;
+	local freq=$3;
+	local ip=$4;
+
+	ip link set $if down
+	iw dev $if set type mp
+	ip link set $if up
+
+	cat<<EOM > /tmp/wpas-$if.conf
+network={
+	ssid="wmediumd-mesh"
+	mode=5
+	frequency=$freq
+	key_mgmt=NONE
+}
+EOM
+	wpa_supplicant -i $if -c /tmp/wpas-$if.conf &
+	ip addr add $ip/24 dev $if 2>/dev/null
+}
+
+function meshup-wpas {
+	local if=$1;
+	local meshid=$2;
+	local freq=$3;
+	local ip=$4;
+
+	ip link set $if down
+	iw dev $if set type mp
+	ip link set $if up
+
+	cat<<EOM > /tmp/wpas-$if.conf
+network={
+	ssid="wmediumd-mesh-sec"
+	mode=5
+	frequency=$freq
+	key_mgmt=SAE
+	psk="some passphrase"
+}
+EOM
+	wpa_supplicant -i $if -c /tmp/wpas-$if.conf &
+	ip addr add $ip/24 dev $if 2>/dev/null
+}
+
+function addr2phy {
+	local addr=$1;
+	grep -l $addr /sys/class/ieee80211/phy*/macaddress | \
+		awk -F '/' '{print $(NF-1)}'
+}
