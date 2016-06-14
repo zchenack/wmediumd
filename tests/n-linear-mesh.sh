@@ -4,6 +4,8 @@
 # total throughput is divided by n.
 
 num_nodes=${1:-4}
+daemon=${2:-iw}
+
 session=wmediumd
 subnet=10.10.10
 macfmt='02:00:00:00:%02x:00'
@@ -68,7 +70,7 @@ for addr in ${addrs[@]}; do
 
 	# start mesh node
 	tmux send-keys -t $win '. func' C-m
-	tmux send-keys -t $win 'meshup '$dev' linear 1 '$ip C-m
+	tmux send-keys -t $win 'meshup-'$daemon ' ' $dev' linear 2412 '$ip C-m
 
 	i=$((i+1))
 done
