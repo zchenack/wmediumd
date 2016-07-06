@@ -79,7 +79,7 @@ for addr in ${addrs[@]}; do
 
 	# start mesh node
 	tmux send-keys -t $win '. func' C-m
-	tmux send-keys -t $win 'meshup '$dev' diamond 1 '$ip C-m
+	tmux send-keys -t $win 'meshup-iw '$dev' diamond 2412 '$ip C-m
 
 	i=$((i+1))
 done
