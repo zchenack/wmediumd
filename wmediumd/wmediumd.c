@@ -326,38 +326,47 @@ int send_tx_info_frame_nl(struct wmediumd *ctx,
 {
 	struct nl_sock *sock = ctx->sock;
 	struct nl_msg *msg;
+	int ret;
 
 	msg = nlmsg_alloc();
 	if (!msg) {
 		printf("Error allocating new message MSG!\n");
+		return -1;
+	}
+
+	if (genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ,
+			genl_family_get_id(ctx->family), 0,
+			NLM_F_REQUEST, HWSIM_CMD_TX_INFO_FRAME,
+			VERSION_NR) == NULL) {
+		printf("%s: genlmsg_put failed\n", __func__);
+		ret = -1;
 		goto out;
 	}
 
-	genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family_get_id(ctx->family),
-		    0, NLM_F_REQUEST, HWSIM_CMD_TX_INFO_FRAME, VERSION_NR);
-
-	int rc;
-
-	rc = nla_put(msg, HWSIM_ATTR_ADDR_TRANSMITTER, ETH_ALEN, src->hwaddr);
-	rc = nla_put_u32(msg, HWSIM_ATTR_FLAGS, flags);
-	rc = nla_put_u32(msg, HWSIM_ATTR_SIGNAL, signal);
-	rc = nla_put(msg, HWSIM_ATTR_TX_INFO,
-		     IEEE80211_TX_MAX_RATES * sizeof(struct hwsim_tx_rate),
-		     tx_attempts);
-
-	rc = nla_put_u64(msg, HWSIM_ATTR_COOKIE, cookie);
-
-	if (rc != 0) {
-		printf("Error filling payload\n");
+	if (nla_put(msg, HWSIM_ATTR_ADDR_TRANSMITTER, ETH_ALEN,
+		    src->hwaddr) ||
+	    nla_put_u32(msg, HWSIM_ATTR_FLAGS, flags) ||
+	    nla_put_u32(msg, HWSIM_ATTR_SIGNAL, signal) ||
+	    nla_put(msg, HWSIM_ATTR_TX_INFO,
+		    IEEE80211_TX_MAX_RATES * sizeof(struct hwsim_tx_rate),
+		    tx_attempts) ||
+	    nla_put_u64(msg, HWSIM_ATTR_COOKIE, cookie)) {
+		printf("%s: Failed to fill a payload\n", __func__);
+		ret = -1;
 		goto out;
 	}
 
-	nl_send_auto_complete(sock, msg);
-	nlmsg_free(msg);
-	return 0;
+	ret = nl_send_auto_complete(sock, msg);
+	if (ret < 0) {
+		printf("%s: nl_send_auto failed\n", __func__);
+		ret = -1;
+		goto out;
+	}
+	ret = 0;
+
 out:
 	nlmsg_free(msg);
-	return -1;
+	return ret;
 }
 
 /*
@@ -368,36 +377,47 @@ int send_cloned_frame_msg(struct wmediumd *ctx, struct station *dst,
 {
 	struct nl_msg *msg;
 	struct nl_sock *sock = ctx->sock;
+	int ret;
 
 	msg = nlmsg_alloc();
 	if (!msg) {
 		printf("Error allocating new message MSG!\n");
+		return -1;
+	}
+
+	if (genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ,
+			genl_family_get_id(ctx->family), 0,
+			NLM_F_REQUEST, HWSIM_CMD_FRAME,
+			VERSION_NR) == NULL) {
+		printf("%s: genlmsg_put failed\n", __func__);
+		ret = -1;
 		goto out;
 	}
 
-	genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family_get_id(ctx->family),
-		    0, NLM_F_REQUEST, HWSIM_CMD_FRAME, VERSION_NR);
-
-	int rc;
-
-	rc = nla_put(msg, HWSIM_ATTR_ADDR_RECEIVER, ETH_ALEN, dst->hwaddr);
-	rc = nla_put(msg, HWSIM_ATTR_FRAME, data_len, data);
-	rc = nla_put_u32(msg, HWSIM_ATTR_RX_RATE, 1);
-	rc = nla_put_u32(msg, HWSIM_ATTR_SIGNAL, -50);
-
-	if (rc != 0) {
-		printf("Error filling payload\n");
+	if (nla_put(msg, HWSIM_ATTR_ADDR_RECEIVER, ETH_ALEN,
+		    dst->hwaddr) ||
+	    nla_put(msg, HWSIM_ATTR_FRAME, data_len, data) ||
+	    nla_put_u32(msg, HWSIM_ATTR_RX_RATE, 1) ||
+	    nla_put_u32(msg, HWSIM_ATTR_SIGNAL, -50)) {
+		printf("%s: Failed to fill a payload\n", __func__);
+		ret = -1;
 		goto out;
 	}
+
 	printf("cloned msg dest " MAC_FMT " (radio: " MAC_FMT ") len %d\n",
 	       MAC_ARGS(dst->addr), MAC_ARGS(dst->hwaddr), data_len);
 
-	nl_send_auto_complete(sock, msg);
-	nlmsg_free(msg);
-	return 0;
+	ret = nl_send_auto_complete(sock, msg);
+	if (ret < 0) {
+		printf("%s: nl_send_auto failed\n", __func__);
+		ret = -1;
+		goto out;
+	}
+	ret = 0;
+
 out:
 	nlmsg_free(msg);
-	return -1;
+	return ret;
 }
 
 void deliver_frame(struct wmediumd *ctx, struct frame *frame)
@@ -584,6 +604,7 @@ int send_register_msg(struct wmediumd *ctx)
 {
 	struct nl_sock *sock = ctx->sock;
 	struct nl_msg *msg;
+	int ret;
 
 	msg = nlmsg_alloc();
 	if (!msg) {
@@ -591,12 +612,26 @@ int send_register_msg(struct wmediumd *ctx)
 		return -1;
 	}
 
-	genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, genl_family_get_id(ctx->family),
-		    0, NLM_F_REQUEST, HWSIM_CMD_REGISTER, VERSION_NR);
-	nl_send_auto_complete(sock, msg);
-	nlmsg_free(msg);
+	if (genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ,
+			genl_family_get_id(ctx->family), 0,
+			NLM_F_REQUEST, HWSIM_CMD_REGISTER,
+			VERSION_NR) == NULL) {
+		printf("%s: genlmsg_put failed\n", __func__);
+		ret = -1;
+		goto out;
+	}
 
-	return 0;
+	ret = nl_send_auto_complete(sock, msg);
+	if (ret < 0) {
+		printf("%s: nl_send_auto failed\n", __func__);
+		ret = -1;
+		goto out;
+	}
+	ret = 0;
+
+out:
+	nlmsg_free(msg);
+	return ret;
 }
 
 static void sock_event_cb(int fd, short what, void *data)
@@ -609,36 +644,48 @@ static void sock_event_cb(int fd, short what, void *data)
 /*
  * Setup netlink socket and callbacks.
  */
-void init_netlink(struct wmediumd *ctx)
+static int init_netlink(struct wmediumd *ctx)
 {
 	struct nl_sock *sock;
+	int ret;
 
 	ctx->cb = nl_cb_alloc(NL_CB_CUSTOM);
 	if (!ctx->cb) {
 		printf("Error allocating netlink callbacks\n");
-		exit(EXIT_FAILURE);
+		return -1;
 	}
 
 	sock = nl_socket_alloc_cb(ctx->cb);
 	if (!sock) {
 		printf("Error allocating netlink socket\n");
-		exit(EXIT_FAILURE);
+		return -1;
 	}
 
 	ctx->sock = sock;
 
-	genl_connect(sock);
-	genl_ctrl_alloc_cache(sock, &ctx->cache);
+	ret = genl_connect(sock);
+	if (ret < 0) {
+		printf("Error connecting netlink socket ret=%d\n", ret);
+		return -1;
+	}
+
+	ret = genl_ctrl_alloc_cache(sock, &ctx->cache);
+	if (ret < 0) {
+		printf("Error allocationg netlink cache ret=%d\n", ret);
+		return -1;
+	}
 
 	ctx->family = genl_ctrl_search_by_name(ctx->cache, "MAC80211_HWSIM");
 
 	if (!ctx->family) {
 		printf("Family MAC80211_HWSIM not registered\n");
-		exit(EXIT_FAILURE);
+		return -1;
 	}
 
 	nl_cb_set(ctx->cb, NL_CB_MSG_IN, NL_CB_CUSTOM, process_messages_cb, ctx);
 	nl_cb_err(ctx->cb, NL_CB_CUSTOM, nl_err_cb, ctx);
+
+	return 0;
 }
 
 /*
@@ -723,7 +770,9 @@ int main(int argc, char *argv[])
 	event_init();
 
 	/* init netlink */
-	init_netlink(&ctx);
+	if (init_netlink(&ctx) < 0)
+		return EXIT_FAILURE;
+
 	event_set(&ev_cmd, nl_socket_get_fd(ctx.sock), EV_READ | EV_PERSIST,
 		  sock_event_cb, &ctx);
 	event_add(&ev_cmd, NULL);
