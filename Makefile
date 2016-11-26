@@ -1,6 +1,8 @@
 SHELL=/bin/sh
 MAKE = make
 SUBDIRS ?= wmediumd
+BIN = wmediumd/wmediumd
+BINDIR = /usr/bin
 
 all:
 
@@ -14,3 +16,5 @@ clean:
 	echo "Clearing in $$i..."; \
 	(cd $$i; $(MAKE) clean); done
 
+install: all
+	install -m 0755 $(BIN) $(BINDIR)
