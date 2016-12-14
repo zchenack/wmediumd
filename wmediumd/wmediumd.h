@@ -111,7 +111,7 @@ struct frame {
 	u8 data[0];			/* frame contents */
 };
 
-void station_init_queues(struct station *station);
+void station_init_queues(struct station *station, int cw_min);
 double get_error_prob(double snr, unsigned int rate_idx, int frame_len);
 
 #endif /* WMEDIUMD_H_ */

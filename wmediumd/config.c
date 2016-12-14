@@ -71,7 +71,15 @@ int load_config(struct wmediumd *ctx, const char *file)
 	count_ids = config_setting_length(ids);
 
 	printf("#_if = %d\n", count_ids);
-
+	
+	/*modified the cw min dynamically */
+    int cw[15] = {4, 4, 8, 16, 16, 32, 32, 32, 32, 64, 64, 64, 64, 64, 64};
+    int cw_min = 0;
+	if(count_ids >= 15){
+		cw_min = 63;
+	}else {
+		cw_min = cw[count_ids - 1] - 1; 
+	}
 	/* Fill the mac_addr */
 	for (i = 0; i < count_ids; i++) {
 		u8 addr[ETH_ALEN];
@@ -86,7 +94,8 @@ int load_config(struct wmediumd *ctx, const char *file)
 		station->index = i;
 		memcpy(station->addr, addr, ETH_ALEN);
 		memcpy(station->hwaddr, addr, ETH_ALEN);
-		station_init_queues(station);
+		// station_init_queues(station);
+		station_init_queues(station, cw_min);//modified 
 		list_add_tail(&station->list, &ctx->stations);
 
 		printf("Added station %d: " MAC_FMT "\n", i, MAC_ARGS(addr));

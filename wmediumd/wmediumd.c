@@ -57,12 +57,12 @@ static void wqueue_init(struct wqueue *wqueue, int cw_min, int cw_max)
 	wqueue->cw_max = cw_max;
 }
 
-void station_init_queues(struct station *station)
+void station_init_queues(struct station *station, int cw_min)
 {
-	wqueue_init(&station->queues[IEEE80211_AC_BK], 15, 1023);
-	wqueue_init(&station->queues[IEEE80211_AC_BE], 15, 1023);
-	wqueue_init(&station->queues[IEEE80211_AC_VI], 7, 15);
-	wqueue_init(&station->queues[IEEE80211_AC_VO], 3, 7);
+	wqueue_init(&station->queues[IEEE80211_AC_BK], cw_min, 1023);
+	wqueue_init(&station->queues[IEEE80211_AC_BE], cw_min, 1023);
+	wqueue_init(&station->queues[IEEE80211_AC_VI], cw_min, 1023);
+	wqueue_init(&station->queues[IEEE80211_AC_VO], cw_min, 1023);
 }
 
 bool timespec_before(struct timespec *t1, struct timespec *t2)
